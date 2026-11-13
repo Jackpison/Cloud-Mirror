@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CloudMirror</title>
+<style>
+:root{
+  --bg:#f4f5f7; --card:#fff; --ink:#1b1f27; --muted:#6a7282; --line:#e3e6ec;
+  --accent:#2f6bff; --accent-ink:#fff; --soft:#eef3ff;
+  --ok:#157f4b; --ok-bg:#e4f5ec; --warn:#9a6200; --warn-bg:#fdf1d8; --bad:#b3261e; --bad-bg:#fbe6e4;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#12141a; --card:#1b1e26; --ink:#e9ecf2; --muted:#98a1b3; --line:#2b303b;
+    --accent:#6f97ff; --accent-ink:#0c1020; --soft:#222a3f;
+    --ok:#6fd6a0; --ok-bg:#163326; --warn:#f0c060; --warn-bg:#3a2e12; --bad:#ff8f87; --bad-bg:#40201e; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:-.01em}
+header .sp{flex:1}
+header small{color:var(--muted)}
+main{max-width:1060px;margin:0 auto;padding:22px 16px 80px;display:grid;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+.card h2{margin:0 0 4px;font-size:16px;font-weight:650}
+.card h2 .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--accent);font-size:12px;margin-right:8px}
+.hint{color:var(--muted);margin:0 0 14px;font-size:14px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:9px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.big{padding:11px 22px;font-size:15px}
+button.link{border:0;background:none;color:var(--accent);padding:0}
+button.ghost{border:0;background:none;color:var(--muted);padding:2px 6px}
+button:disabled{opacity:.5;cursor:default}
+input[type=text],input[type=password],select{font:inherit;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}
+.accounts{display:flex;flex-wrap:wrap;gap:10px}
+.acct{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:9px 12px;min-width:200px}
+.acct.main{border-color:var(--accent);background:var(--soft)}
+.acct .nm{font-weight:600}
+.acct .tp{color:var(--muted);font-size:13px}
+.acct .sp{flex:1}
+.tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.tag.main{background:var(--accent);color:var(--accent-ink)}
+.tag.ok{background:var(--ok-bg);color:var(--ok)} .tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.bad{background:var(--bad-bg);color:var(--bad)} .tag.mute{background:var(--bg);color:var(--muted)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-size:13px;color:var(--muted);font-weight:600;background:var(--bg)}
+th b{color:var(--ink);display:block;font-size:14px}
+td .fname{font-weight:600}
+td .meta{color:var(--muted);font-size:13px;margin-top:2px}
+td label{display:flex;gap:9px;align-items:flex-start;cursor:pointer}
+td input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--accent)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row .sp{flex:1}
+.pair{border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:10px}
+.pair .top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pair .top b{font-weight:600}
+.counts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.bar{height:7px;border-radius:9px;background:var(--bg);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .4s}
+details{margin-top:8px} summary{cursor:pointer;color:var(--accent);font-size:14px}
+.files{font:13px/1.5 ui-monospace,Consolas,monospace;max-height:220px;overflow:auto;background:var(--bg);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;word-break:break-all}
+.files .a{color:var(--ok)} .files .u{color:var(--warn)} .files .r{color:var(--bad)}
+.err{background:var(--bad-bg);color:var(--bad);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:14px;word-break:break-word}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px;z-index:10}
+.modal .box{background:var(--card);border-radius:14px;padding:22px;width:min(520px,100%);max-height:88vh;overflow:auto}
+.modal h3{margin:0 0 12px;font-size:17px}
+.field{margin-bottom:12px} .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+.help{white-space:pre-wrap;color:var(--muted);font-size:14px;margin:0 0 12px;word-break:break-word}
+.opts{display:grid;gap:6px;margin-bottom:12px}
+.opts label{display:flex;gap:8px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer}
+.picker{border:1px solid var(--line);border-radius:9px;max-height:300px;overflow:auto}
+.picker div{padding:8px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.picker div:last-child{border:0}
+.crumb{font-size:14px;margin-bottom:8px;color:var(--muted);word-break:break-all}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+.empty{color:var(--muted);padding:14px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>CloudMirror</h1><small id="ver"></small><span class="sp"></span>
+  <button id="quit" title="Close the app completely">Quit</button>
+</header>
+<main id="app"><div class="card"><span class="spin"></span> Loading…</div></main>
+<div id="modal"></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SERVICE = {drive:'Google Drive', pcloud:'pCloud', koofr:'Koofr', filen:'Filen', dropbox:'Dropbox', onedrive:'OneDrive',
+  mega:'MEGA', box:'Box', protondrive:'Proton Drive', s3:'S3-compatible', webdav:'WebDAV', sftp:'SFTP', alias:'Local folder'};
+const POPULAR = ['drive','pcloud','koofr','filen','dropbox','onedrive','mega','box','protondrive'];
+const svc = t => SERVICE[t] || t;
+
+let S = null;            // server state
+let topFolders = null;   // top-level folders of the main account
+let folderErr = '';
+const sizes = {};        // "remote:path" -> info | 'loading'
+const stale = new Set(); // keys to re-count on next draw
+let busy = '';
+
+async function api(path, data) {
+  const r = await fetch('/api/' + path, data === undefined ? {} :
+    {method:'POST', headers:{'Content-Type':'application/json','X-CloudMirror':'1'}, body: JSON.stringify(data)});
+  const j = await r.json().catch(() => ({error:'Unexpected reply from the app'}));
+  if (!r.ok) throw new Error(j.error || 'Something went wrong');
+  return j;
+}
+function fmtBytes(b) {
+  if (b < 0) return '?';
+  const u = ['B','KB','MB','GB','TB','PB']; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (i === 0 ? b : b.toFixed(b < 10 ? 2 : b < 100 ? 1 : 0)) + ' ' + u[i];
+}
+const fmtN = n => n.toLocaleString();
+const files = n => fmtN(n) + (n === 1 ? ' file' : ' files');
+function fmtETA(s) {
+  if (s == null) return '';
+  if (s < 60) return Math.round(s) + ' s left';
+  if (s < 3600) return Math.round(s / 60) + ' min left';
+  return (s / 3600).toFixed(1) + ' h left';
+}
+
+async function load() {
+  S = await api('state');
+  $('#ver').textContent = S.engine.found ? 'rclone ' + S.engine.version : '';
+  if (S.engine.found && S.settings.main && topFolders === null) loadFolders();
+  render();
+  if (S.job && S.job.running) poll();
+}
+async function loadFolders() {
+  topFolders = null; folderErr = ''; render();
+  const main = S.settings.main;
+  try { topFolders = await api('folders?remote=' + encodeURIComponent(main) + '&path='); }
+  catch (e) { topFolders = []; folderErr = e.message; }
+  render();
+}
+function wantSize(remote, path, refresh) {
+  const k = remote + ':' + path;
+  if (stale.has(k)) { stale.delete(k); refresh = true; delete sizes[k]; }
+  if (sizes[k] && !refresh) return sizes[k];
+  sizes[k] = 'loading';
+  api('size?remote=' + encodeURIComponent(remote) + '&path=' + encodeURIComponent(path) + (refresh ? '&refresh=1' : ''))
+    .then(v => { sizes[k] = v; }).catch(e => { sizes[k] = {error: e.message}; }).finally(render);
+  return 'loading';
+}
+function sizeText(v) {
+  if (v === 'loading') return '<span class="spin"></span> counting…';
+  if (v.error) return '<span title="' + esc(v.error) + '">size unavailable</span>';
+  if (v.missing) return 'not copied yet';
+  return fmtBytes(v.bytes) + ' · ' + files(v.count);
+}
+
+let polling = false;
+async function poll() {
+  if (polling) return; polling = true;
+  try {
+    while (true) {
+      await new Promise(r => setTimeout(r, 700));
+      const st = await api('state');
+      const was = S.job && S.job.running;
+      S = st;
+      if (!S.job || !S.job.running) {
+        if (was && S.job) for (const p of S.job.pairs) { stale.add(p.dest + ':' + p.folder); stale.add(S.settings.main + ':' + p.folder); }
+        break;
+      }
+      renderResults();
+    }
+  } finally { polling = false; render(); }
+}
+
+function rowsFolders() {
+  const set = new Set([...(topFolders || []), ...Object.keys(S.settings.folders)]);
+  return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+}
+function selectedPairs() { return Object.values(S.settings.folders).reduce((n, d) => n + d.length, 0); }
+
+function render() {
+  const app = $('#app');
+  if (!S.engine.found) {
+    app.innerHTML = `<div class="card"><h2>One-time setup</h2>
+      <p class="hint">CloudMirror uses the free rclone engine to talk to your cloud services. It needs to be downloaded once (about 25 MB, from rclone.org).</p>
+      <button class="primary big" id="install" ${busy ? 'disabled' : ''}>${busy === 'install' ? '<span class="spin"></span> Downloading…' : 'Download and continue'}</button>
+      <div id="msg"></div></div>`;
+    $('#install').onclick = async () => {
+      busy = 'install'; render();
+      try { await api('install', {}); busy = ''; await load(); }
+      catch (e) { busy = ''; render(); $('#msg').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
+    };
+    return;
+  }
+  const running = S.job && S.job.running;
+  const main = S.settings.main;
+  const others = S.remotes.filter(r => r.name !== main);
+
+  let h = `<div class="card"><h2><span class="n">1</span>Accounts</h2>
+    <p class="hint">Connect your cloud services, then pick the one you upload to as <b>Main</b>. Everything else becomes a copy of it.</p>
+    <div class="accounts">`;
+  for (const r of S.remotes) {
+    const isMain = r.name === main;
+    h += `<div class="acct ${isMain ? 'main' : ''}"><div><div class="nm">${esc(r.name)}</div><div class="tp">${esc(svc(r.type))}</div></div><span class="sp"></span>
+      ${isMain ? '<span class="tag main">Main</span>' : `<button class="link" data-main="${esc(r.name)}" ${running ? 'disabled' : ''}>Make main</button>`}
+      <button class="ghost" title="Disconnect" data-del="${esc(r.name)}" ${running ? 'disabled' : ''}>✕</button></div>`;
+  }
+  h += `<button id="add" ${running ? 'disabled' : ''}>+ Add account</button></div></div>`;
+
+  h += `<div class="card"><h2><span class="n">2</span>Folders</h2>`;
+  if (!main) h += `<p class="hint">Choose a main account above to see its folders.</p>`;
+  else if (!others.length) h += `<p class="hint">Add at least one more account to copy <b>${esc(main)}</b> to.</p>`;
+  else {
+    h += `<p class="hint">Tick where each folder of <b>${esc(main)}</b> should be copied. Sizes and file counts are shown for the main folder and each copy.</p>`;
+    if (folderErr) h += `<div class="err">Could not list folders on ${esc(main)}: ${esc(folderErr)}</div>`;
+    if (topFolders === null) h += `<div class="empty"><span class="spin"></span> Reading folders…</div>`;
+    else {
+      const rows = rowsFolders();
+      h += `<div class="tablewrap"><table><tr><th><b>${esc(main)}</b>Main · ${esc(svc(S.remotes.find(r => r.name === main)?.type || ''))}</th>`;
+      for (const o of others) h += `<th><b>${esc(o.name)}</b>${esc(svc(o.type))}</th>`;
+      h += `</tr>`;
+      if (!rows.length) h += `<tr><td colspan="${others.length + 1}" class="empty">No folders found.</td></tr>`;
+      for (const f of rows) {
+        const dests = S.settings.folders[f] || [];
+        const ms = wantSize(main, f);
+        h += `<tr><td><div class="fname">${esc(f)}</div><div class="meta">${sizeText(ms)}</div></td>`;
+        for (const o of others) {
+          const on = dests.includes(o.name);
+          let meta = '';
+          if (on) {
+            const ds = wantSize(o.name, f);
+            let tag = '';
+            if (ms !== 'loading' && ds !== 'loading' && !ms.error && !ds.error) {
+              tag = ds.missing ? '' : (ds.count === ms.count && ds.bytes === ms.bytes)
+                ? ' <span class="tag ok">Matches</span>' : ' <span class="tag warn">Differs</span>';
+            }
+            meta = `<div class="meta">${sizeText(ds)}${tag}</div>`;
+          }
+          h += `<td><label><input type="checkbox" data-f="${esc(f)}" data-d="${esc(o.name)}" ${on ? 'checked' : ''} ${running ? 'disabled' : ''}>
+            <span>${on ? 'Copy here' : '<span style="color:var(--muted)">Off</span>'}${meta}</span></label></td>`;
+        }
+        h += `</tr>`;
+      }
+      h += `</table></div>
+        <div class="row" style="margin-top:12px">
+          <button id="sub" ${running ? 'disabled' : ''}>+ Add a folder inside another folder</button>
+          <button id="refresh" ${running ? 'disabled' : ''}>Refresh</button><span class="sp"></span>
+          <label for="mode" style="color:var(--muted);font-size:14px">Files I delete or replace on main:</label>
+          <select id="mode" style="width:auto" ${running ? 'disabled' : ''}>
+            <option value="trash">Move to a trash folder on the copy (safest)</option>
+            <option value="mirror">Delete from the copy permanently</option>
+            <option value="keep">Leave on the copy (never delete)</option>
+          </select>
+        </div>`;
+    }
+  }
+  h += `</div>`;
+
+  const n = selectedPairs();
+  h += `<div class="card"><h2><span class="n">3</span>Sync</h2>
+    <p class="hint">${n ? `${n} folder ${n === 1 ? 'copy' : 'copies'} selected. Check first to see exactly what would change, or sync straight away.` : 'Tick at least one folder above.'}</p>
+    <div class="row">
+      <button class="big" id="preview" ${running || !n ? 'disabled' : ''}>Check for changes</button>
+      <button class="primary big" id="sync" ${running || !n ? 'disabled' : ''}>Sync now</button>
+      ${running ? '<button id="stop">Stop</button>' : ''}
+    </div><div id="runmsg"></div><div id="results"></div></div>`;
+  app.innerHTML = h;
+  renderResults();
+
+  if ($('#mode')) { $('#mode').value = S.settings.deleteMode; $('#mode').onchange = e => { S.settings.deleteMode = e.target.value; save(); }; }
+  $('#add').onclick = addAccount;
+  app.querySelectorAll('[data-main]').forEach(b => b.onclick = () => {
+    if (Object.keys(S.settings.folders).some(f => S.settings.folders[f].length) &&
+        !confirm('Changing the main account clears your folder choices. Continue?')) return;
+    S.settings.main = b.dataset.main; S.settings.folders = {}; topFolders = null; save().then(loadFolders);
+  });
+  app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('Disconnect "' + b.dataset.del + '" from CloudMirror? Files in that account are not touched.')) return;
+    try { await api('account/delete', {name: b.dataset.del}); topFolders = null; await load(); } catch (e) { alert(e.message); }
+  });
+  app.querySelectorAll('input[data-f]').forEach(c => c.onchange = () => {
+    const f = c.dataset.f, d = c.dataset.d, cur = new Set(S.settings.folders[f] || []);
+    c.checked ? cur.add(d) : cur.delete(d);
+    if (cur.size || (topFolders || []).includes(f)) S.settings.folders[f] = [...cur]; else delete S.settings.folders[f];
+    if (!cur.size) delete S.settings.folders[f];
+    save();
+  });
+  if ($('#sub')) $('#sub').onclick = pickFolder;
+  if ($('#refresh')) $('#refresh').onclick = () => { for (const k in sizes) stale.add(k); loadFolders(); };
+  $('#preview').onclick = () => run('preview');
+  $('#sync').onclick = () => run('sync');
+  if ($('#stop')) $('#stop').onclick = () => api('cancel', {});
+}
+
+
+async function save() {
+  try { S.settings = await api('settings', S.settings); } catch (e) { alert(e.message); }
+  render();
+}
+async function run(kind) {
+  if (kind === 'sync' && S.settings.deleteMode === 'mirror' &&
+      !confirm('Files you removed from the main account will be permanently deleted from the copies. Continue?')) return;
+  try { await api('run', {kind}); S = await api('state'); render(); poll(); }
+  catch (e) { $('#runmsg').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
+}
+
+function renderResults() {
+  const el = $('#results'); if (!el) return;
+  const j = S.job; if (!j) { el.innerHTML = ''; return; }
+  const prev = j.kind === 'preview';
+  const tot = j.pairs.reduce((t, p) => t + p.nAdded + p.nUpdated + p.nRemoved, 0);
+  const failed = j.pairs.filter(p => p.status === 'error').length;
+  let h = '<div style="margin-top:16px;font-weight:600">';
+  if (j.running) h += `<span class="spin"></span> ${prev ? 'Checking for changes…' : 'Syncing…'}`;
+  else if (failed) h += `${prev ? 'Check' : 'Sync'} finished with problems in ${failed} ${failed === 1 ? 'copy' : 'copies'}`;
+  else if (j.pairs.some(p => p.status === 'cancelled')) h += 'Stopped';
+  else if (prev) h += tot ? `${fmtN(tot)} ${tot === 1 ? 'change' : 'changes'} waiting — nothing has been changed yet` : 'Everything is already up to date';
+  else h += tot ? `Sync complete — ${fmtN(tot)} ${tot === 1 ? 'change' : 'changes'} applied` : 'Sync complete — everything was already up to date';
+  h += '</div>';
+  const open = new Set([...el.querySelectorAll('details[open]')].map(d => d.dataset.k));
+  for (const p of j.pairs) {
+    const k = p.folder + '>' + p.dest;
+    const st = {pending:['mute','Waiting'], running:['warn', prev ? 'Checking' : 'Syncing'], done:['ok', prev ? 'Checked' : 'Done'],
+      error:['bad','Problem'], cancelled:['mute','Stopped']}[p.status];
+    h += `<div class="pair"><div class="top"><b>${esc(p.folder)}</b><span style="color:var(--muted)">${esc(S.settings.main)} → ${esc(p.dest)}</span>
+      <span class="sp" style="flex:1"></span><span class="tag ${st[0]}">${st[1]}</span></div>`;
+    if (p.status === 'running' && !prev && p.totalBytes > 0) {
+      const pct = Math.min(100, p.bytes / p.totalBytes * 100);
+      h += `<div class="bar"><i style="width:${pct}%"></i></div>
+        <div class="meta" style="color:var(--muted);font-size:13px;margin-top:6px">${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} · ${fmtBytes(p.speed)}/s ${p.eta != null ? '· ' + fmtETA(p.eta) : ''}
+        ${p.current.length ? '<br>' + esc(p.current.slice(0, 3).join(', ')) : ''}</div>`;
+    }
+    if (p.status === 'done' || p.status === 'error' || p.status === 'cancelled') {
+      const c = p.nAdded + p.nUpdated + p.nRemoved;
+      const remWord = j.mode === 'trash' ? (prev ? 'to move to trash' : 'moved to trash') : (prev ? 'to delete' : 'deleted');
+      if (c) {
+        h += `<div class="counts"><span class="tag ok">${fmtN(p.nAdded)} ${prev ? 'to add' : 'added'}</span>
+          <span class="tag warn">${fmtN(p.nUpdated)} ${prev ? 'to update' : 'updated'}</span>
+          <span class="tag bad">${fmtN(p.nRemoved)} ${remWord}</span></div>
+          <details data-k="${esc(k)}" ${open.has(k) ? 'open' : ''}><summary>Show files</summary><div class="files">` +
+          p.added.map(f => `<span class="a">+ ${esc(f)}</span>`).concat(
+          p.updated.map(f => `<span class="u">~ ${esc(f)}</span>`),
+          p.removed.map(f => `<span class="r">− ${esc(f)}</span>`)).join('\n') +
+          (c > p.added.length + p.updated.length + p.removed.length ? '\n… and more' : '') + `</div></details>`;
+        if (!prev && j.mode === 'trash' && (p.nRemoved || p.nUpdated))
+          h += `<div class="meta" style="color:var(--muted);font-size:13px;margin-top:6px">Old versions kept on ${esc(p.dest)} in <b>${esc(p.trash)}</b></div>`;
+      } else if (p.status === 'done') h += `<div class="meta" style="color:var(--muted);font-size:14px;margin-top:6px">Up to date</div>`;
+    }
+    for (const e of p.errors.slice(0, 5)) h += `<div class="err">${esc(e)}</div>`;
+    if (p.errors.length > 5) h += `<div class="meta" style="color:var(--muted);font-size:13px;margin-top:4px">and ${p.errors.length - 5} more problems</div>`;
+    h += '</div>';
+  }
+  el.innerHTML = h;
+}
+
+/* ---------- add account wizard ---------- */
+function modal(html) { $('#modal').innerHTML = `<div class="modal"><div class="box">${html}</div></div>`; }
+function closeModal() { $('#modal').innerHTML = ''; }
+
+async function addAccount() {
+  modal('<span class="spin"></span> Loading services…');
+  let provs;
+  try { provs = await api('providers'); } catch (e) { modal(`<div class="err">${esc(e.message)}</div><button id="x">Close</button>`); $('#x').onclick = closeModal; return; }
+  const pop = POPULAR.filter(n => provs.some(p => p.name === n));
+  const rest = provs.filter(p => !pop.includes(p.name)).sort((a, b) => a.description.localeCompare(b.description));
+  modal(`<h3>Add an account</h3>
+    <div class="field"><label>Service</label><select id="ptype">
+      <optgroup label="Popular">${pop.map(n => `<option value="${n}">${esc(svc(n))}</option>`).join('')}</optgroup>
+      <optgroup label="All services">${rest.map(p => `<option value="${esc(p.name)}">${esc(p.description.slice(0, 70))}</option>`).join('')}</optgroup>
+    </select></div>
+    <div class="field"><label>Name to show in CloudMirror (letters, numbers, - and _)</label><input type="text" id="pname" placeholder="e.g. gdrive"></div>
+    <div id="werr"></div>
+    <div class="row"><span class="sp"></span><button id="x">Cancel</button><button class="primary" id="go">Continue</button></div>`);
+  const nameFor = () => { const t = $('#ptype').value; let n = t === 'drive' ? 'gdrive' : t, i = 2;
+    while (S.remotes.some(r => r.name === n)) n = (t === 'drive' ? 'gdrive' : t) + i++; return n; };
+  $('#pname').value = nameFor(); $('#ptype').onchange = () => $('#pname').value = nameFor();
+  $('#x').onclick = closeModal;
+  $('#go').onclick = () => wizardStep({name: $('#pname').value.trim(), type: $('#ptype').value, first: true});
+}
+
+async function wizardStep(req) {
+  const errBox = $('#werr');
+  const btn = $('#go'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Working…'; }
+  const waitNote = setTimeout(() => { if ($('#werr')) $('#werr').innerHTML =
+    '<p class="help">If a sign-in page opened in your browser, finish signing in there. This window continues by itself.</p>'; }, 2500);
+  let res;
+  try { res = await api('account/step', req); }
+  catch (e) {
+    clearTimeout(waitNote);
+    if (e.message === 'cancelled') return;
+    if (errBox) errBox.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+    if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+    return;
+  }
+  clearTimeout(waitNote);
+  if (res.done) { closeModal(); topFolders = S.settings.main ? topFolders : null; await load(); return; }
+  const o = res.option, ex = o.Examples || [];
+  let input;
+  if (ex.length && (o.Exclusive || ex.length <= 8)) {
+    input = `<div class="opts">${ex.map((e, i) => `<label><input type="radio" name="ans" value="${esc(e.Value)}" ${e.Value === o.DefaultStr || (!o.DefaultStr && i === 0) ? 'checked' : ''}>
+      <span>${esc(e.Help || e.Value)}</span></label>`).join('')}</div>`;
+  } else {
+    input = `<div class="field"><input type="${o.IsPassword ? 'password' : 'text'}" id="ans" value="${esc(o.IsPassword ? '' : o.DefaultStr || '')}" list="exl" autocomplete="off">
+      <datalist id="exl">${ex.map(e => `<option value="${esc(e.Value)}">${esc(e.Help || '')}</option>`).join('')}</datalist>
+      ${o.Required ? '' : '<div class="tp" style="color:var(--muted);font-size:13px;margin-top:5px">Optional — leave empty if unsure.</div>'}</div>`;
+  }
+  modal(`<h3>${esc(svc(req.type))} · ${esc(o.Name.replace(/^config_/, '').replace(/_/g, ' '))}</h3>
+    <p class="help">${linkify(o.Help)}</p>${res.error ? `<div class="err" style="margin-bottom:10px">${esc(res.error)}</div>` : ''}${input}
+    <div id="werr"></div>
+    <div class="row"><span class="sp"></span><button id="x">Cancel</button><button class="primary" id="go">Continue</button></div>`);
+  const a = $('#ans'); if (a) { a.focus(); a.onkeydown = e => { if (e.key === 'Enter') $('#go').click(); }; }
+  $('#x').onclick = async () => { closeModal(); await api('account/cancel', {name: req.name}).catch(() => {}); load(); };
+  $('#go').onclick = () => {
+    const v = a ? a.value : ($('input[name=ans]:checked') || {}).value || '';
+    wizardStep({name: req.name, type: req.type, state: res.state, result: v, password: o.IsPassword});
+  };
+}
+function linkify(t) {
+  return esc(t).replace(/https?:\/\/[^\s<)]+/g, u => `<a href="${u.replace(/[.,]$/, '')}" target="_blank" rel="noopener">${u}</a>`);
+}
+
+/* ---------- nested folder picker ---------- */
+async function pickFolder(_, path = '') {
+  modal(`<h3>Choose a folder on ${esc(S.settings.main)}</h3><div class="crumb">${esc(S.settings.main)} / ${esc(path.split('/').join(' / '))}</div>
+    <div class="picker" id="pk"><div><span class="spin"></span> Reading…</div></div>
+    <div class="row" style="margin-top:14px">${path ? '<button id="up">← Back</button>' : ''}<span class="sp"></span><button id="x">Cancel</button>
+    ${path ? '<button class="primary" id="use">Add this folder</button>' : ''}</div>`);
+  $('#x').onclick = closeModal;
+  if (path) {
+    $('#up').onclick = () => pickFolder(null, path.split('/').slice(0, -1).join('/'));
+    $('#use').onclick = () => { if (!S.settings.folders[path]) S.settings.folders[path] = []; closeModal(); save(); };
+  }
+  try {
+    const list = await api('folders?remote=' + encodeURIComponent(S.settings.main) + '&path=' + encodeURIComponent(path));
+    $('#pk').innerHTML = list.length ? list.map(n => `<div><span style="flex:1">${esc(n)}</span><button class="link" data-p="${esc(n)}">Open</button></div>`).join('')
+      : '<div class="empty">No folders inside.</div>';
+    $('#pk').querySelectorAll('[data-p]').forEach(b => b.onclick = () => pickFolder(null, (path ? path + '/' : '') + b.dataset.p));
+  } catch (e) { $('#pk').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+$('#quit').onclick = async () => {
+  if (S && S.job && S.job.running && !confirm('A sync is running. Quit and stop it?')) return;
+  await api('quit', {}).catch(() => {});
+  document.body.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted)">CloudMirror is closed. You can close this tab.</div>';
+};
+load().catch(e => { $('#app').innerHTML = '<div class="card"><div class="err">' + esc(e.message) + '</div></div>'; });
+</script>
+</body>
+</html>
