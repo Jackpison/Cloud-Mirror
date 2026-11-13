@@ -1,0 +1,30 @@
+name: Build Windows app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - name: Build CloudMirror.exe
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui -s -w" -o CloudMirror.exe .
+      - name: Publish to the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest CloudMirror.exe \
+            --target "$GITHUB_SHA" --latest \
+            --title "CloudMirror (latest build)" \
+            --notes "Download CloudMirror.exe below and double-click it. Built automatically from commit ${GITHUB_SHA::7}."
