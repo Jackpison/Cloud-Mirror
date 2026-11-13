@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net"
 	"net/http"
@@ -51,12 +52,15 @@ type Plan struct {
 	ID      string   `json:"id"`
 	Source  string   `json:"source"`
 	Targets []Target `json:"targets"`
+	Exclude []string `json:"exclude"` // rclone wildcard patterns to leave out, e.g. "*.tmp"
 }
 
 type Settings struct {
 	Main       string              `json:"main"`
 	Plans      []Plan              `json:"plans"`
 	DeleteMode string              `json:"deleteMode"`
+	GDocs      string              `json:"gdocs"`             // "skip" (default) or "export"
+	NoUpdates  bool                `json:"noUpdateCheck"`     // true switches the new-version check off
 	Folders    map[string][]string `json:"folders,omitempty"` // legacy format, migrated on load
 }
 
@@ -79,6 +83,8 @@ type Pair struct {
 	Current  []string `json:"current"`
 	Errors   []string `json:"errors"`
 	Trash    string   `json:"trash"`
+
+	flags []string // extra rclone options from settings (Google Docs handling, exclude patterns)
 }
 
 type Job struct {
@@ -107,29 +113,28 @@ type App struct {
 	sizes     map[string]sizeInfo
 	providers json.RawMessage
 	acctStop  context.CancelFunc
+	history   []HistEntry
+	upd       updateCache
 
 	sizeSem chan struct{}
 }
 
-func main() {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		base = "."
-	}
-	a := &App{dir: filepath.Join(base, "CloudMirror"), sizes: map[string]sizeInfo{}, sizeSem: make(chan struct{}, 3)}
+func newApp(dir string) *App {
+	a := &App{dir: dir, sizes: map[string]sizeInfo{}, sizeSem: make(chan struct{}, 3)}
 	os.MkdirAll(a.dir, 0o755)
-	a.settings = Settings{Plans: []Plan{}, DeleteMode: "trash"}
+	a.settings = Settings{Plans: []Plan{}, DeleteMode: "trash", GDocs: "skip"}
 	if b, err := os.ReadFile(filepath.Join(a.dir, "settings.json")); err == nil {
 		json.Unmarshal(b, &a.settings)
 	}
-	a.migrate()
-
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		// Already running: just bring the existing window up.
-		openBrowser("http://" + addr)
-		return
+	if a.settings.GDocs != "export" {
+		a.settings.GDocs = "skip"
 	}
+	a.migrate()
+	a.loadHistory()
+	return a
+}
+
+func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -167,6 +172,11 @@ func main() {
 	api("settings", a.hSettings)
 	api("run", a.hRun)
 	api("cancel", a.hCancel)
+	api("history", a.hHistory)
+	api("history/clear", a.hHistoryClear)
+	api("trash/scan", a.hTrash(false))
+	api("trash/clean", a.hTrash(true))
+	api("update", a.hUpdate)
 	api("quit", func(r *http.Request) (any, error) {
 		a.stopAll()
 		go func() { time.Sleep(300 * time.Millisecond); os.Exit(0) }()
@@ -174,17 +184,35 @@ func main() {
 	})
 
 	// Only answer requests addressed to this machine (blocks DNS-rebinding from web pages).
-	guarded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host != addr && r.Host != "localhost:47800" {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h, _, err := net.SplitHostPort(r.Host)
+		if err != nil {
+			h = r.Host
+		}
+		if h != "127.0.0.1" && h != "localhost" {
 			w.WriteHeader(403)
 			return
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+func main() {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		base = "."
+	}
+	a := newApp(filepath.Join(base, "CloudMirror"))
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		// Already running: just bring the existing window up.
+		openBrowser("http://" + addr)
+		return
+	}
 	if os.Getenv("CLOUDMIRROR_NO_BROWSER") == "" {
 		go openBrowser("http://" + addr)
 	}
-	http.Serve(ln, guarded)
+	http.Serve(ln, a.routes())
 }
 
 // migrate converts the first release's "folder -> accounts" choices into plans.
@@ -572,13 +600,51 @@ func (a *App) hFolders(r *http.Request) (any, error) {
 	return names, nil
 }
 
+// extraFlags turns settings into rclone options: Google Docs handling and a plan's exclude patterns.
+func extraFlags(gdocs string, exclude []string) []string {
+	f := []string{}
+	if gdocs != "export" {
+		f = append(f, "--drive-skip-gdocs")
+	}
+	for _, e := range exclude {
+		f = append(f, "--exclude="+e)
+	}
+	return f
+}
+
+func flagsKey(flags []string) string {
+	h := fnv.New32a()
+	h.Write([]byte(strings.Join(flags, "\x00")))
+	return fmt.Sprintf("%08x", h.Sum32())
+}
+
+// dropSizes forgets cached sizes for a folder (every variant of its options).
+func (a *App) dropSizes(base string) {
+	for k := range a.sizes {
+		if strings.HasPrefix(k, base+"|") {
+			delete(a.sizes, k)
+		}
+	}
+}
+
 func (a *App) hSize(r *http.Request) (any, error) {
 	rm := r.URL.Query().Get("remote")
 	p, err := cleanFolder(r.URL.Query().Get("path"))
 	if err != nil || !nameRe.MatchString(rm) || p == "" {
 		return nil, errors.New("invalid folder")
 	}
-	key := rm + ":" + p
+	planID := r.URL.Query().Get("plan")
+	a.mu.Lock()
+	var exclude []string
+	for _, pl := range a.settings.Plans {
+		if pl.ID == planID {
+			exclude = pl.Exclude
+		}
+	}
+	flags := extraFlags(a.settings.GDocs, exclude)
+	a.mu.Unlock()
+	target := rm + ":" + p
+	key := target + "|" + flagsKey(flags)
 	if r.URL.Query().Get("refresh") == "" {
 		a.mu.Lock()
 		s, ok := a.sizes[key]
@@ -592,7 +658,7 @@ func (a *App) hSize(r *http.Request) (any, error) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
 	defer cancel()
 	var s sizeInfo
-	out, err := a.rclone(ctx, "size", key, "--json")
+	out, err := a.rclone(ctx, append([]string{"size", target, "--json"}, flags...)...)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			s.Missing = true
@@ -617,6 +683,29 @@ var idRe = regexp.MustCompile(`^[a-f0-9]{8}$`)
 
 func firstSeg(p string) string { return strings.SplitN(p, "/", 2)[0] }
 
+// cleanExcludes tidies a plan's exclude patterns and rejects ones rclone would refuse.
+func cleanExcludes(in []string) ([]string, error) {
+	out, seen := []string{}, map[string]bool{}
+	for _, e := range in {
+		e = strings.TrimSpace(e)
+		if e == "" || strings.HasPrefix(e, "#") || seen[e] {
+			continue
+		}
+		if len(e) > 200 || strings.ContainsAny(e, "\r\n\x00") {
+			return nil, errors.New("an exclude pattern is too long or invalid")
+		}
+		if strings.Count(e, "[") != strings.Count(e, "]") || strings.Count(e, "{") != strings.Count(e, "}") {
+			return nil, fmt.Errorf("the pattern %q has an unmatched bracket", e)
+		}
+		seen[e] = true
+		out = append(out, e)
+	}
+	if len(out) > 50 {
+		return nil, errors.New("too many exclude patterns (50 at most)")
+	}
+	return out, nil
+}
+
 // normalizePlans validates plans and rejects destinations that would overwrite each other.
 func normalizePlans(main string, in []Plan) ([]Plan, error) {
 	type dest struct{ remote, path string }
@@ -631,7 +720,11 @@ func normalizePlans(main string, in []Plan) ([]Plan, error) {
 		if strings.EqualFold(firstSeg(src), trashDir) {
 			return nil, errors.New("the trash folder cannot be synced")
 		}
-		np := Plan{ID: p.ID, Source: src, Targets: []Target{}}
+		ex, err := cleanExcludes(p.Exclude)
+		if err != nil {
+			return nil, err
+		}
+		np := Plan{ID: p.ID, Source: src, Targets: []Target{}, Exclude: ex}
 		if !idRe.MatchString(np.ID) || seen[np.ID] {
 			np.ID = newID()
 		}
@@ -679,6 +772,9 @@ func (a *App) hSettings(r *http.Request) (any, error) {
 	}
 	if in.DeleteMode != "mirror" && in.DeleteMode != "keep" {
 		in.DeleteMode = "trash"
+	}
+	if in.GDocs != "export" {
+		in.GDocs = "skip"
 	}
 	plans, err := normalizePlans(in.Main, in.Plans)
 	if err != nil {
@@ -744,7 +840,8 @@ func (a *App) hRun(r *http.Request) (any, error) {
 		}
 		for _, t := range pl.Targets {
 			job.Pairs = append(job.Pairs, &Pair{PlanID: pl.ID, Folder: pl.Source, Dest: t.Remote, DestPath: t.Path, Status: "pending",
-				Added: []string{}, Updated: []string{}, Removed: []string{}, Current: []string{}, Errors: []string{}})
+				Added: []string{}, Updated: []string{}, Removed: []string{}, Current: []string{}, Errors: []string{},
+				flags: extraFlags(a.settings.GDocs, pl.Exclude)})
 		}
 	}
 	if len(job.Pairs) == 0 {
@@ -784,9 +881,10 @@ func (a *App) hRun(r *http.Request) (any, error) {
 		job.Finished = time.Now().Format(time.RFC3339)
 		if job.Kind == "sync" {
 			for _, p := range job.Pairs {
-				delete(a.sizes, p.Dest+":"+p.DestPath)
+				a.dropSizes(p.Dest + ":" + p.DestPath)
 			}
 		}
+		a.recordHistoryLocked(job)
 		a.mu.Unlock()
 	}()
 	return map[string]bool{"ok": true}, nil
@@ -816,6 +914,7 @@ func (a *App) runPair(ctx context.Context, p *Pair, main, kind, mode, stamp stri
 		args = append(args, "--backup-dir", p.Dest+":"+trash)
 		set(func() { p.Trash = trash })
 	}
+	args = append(args, p.flags...)
 	if kind == "preview" {
 		args = append(args, "--dry-run")
 	}

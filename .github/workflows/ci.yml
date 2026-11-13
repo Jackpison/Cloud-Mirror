@@ -14,5 +14,12 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go vet ./...
+      - name: Install rclone (the end-to-end test runs real syncs between local folders)
+        run: |
+          curl -fsSL -o /tmp/rclone.zip https://downloads.rclone.org/rclone-current-linux-amd64.zip
+          unzip -q /tmp/rclone.zip -d /tmp/rclone
+          sudo cp /tmp/rclone/rclone-*/rclone /usr/local/bin/
+          rclone version | head -1
+      - run: go test -race -count=1 ./...
       - run: GOOS=windows GOARCH=amd64 go build -o /dev/null .
       - run: go build -o /dev/null .

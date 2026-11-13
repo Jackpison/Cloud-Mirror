@@ -10,6 +10,8 @@ other cloud accounts, using [rclone](https://rclone.org) underneath.
 - **Check for changes** lists what would be added, updated and removed, without changing anything. **Sync now** applies it.
 - Removed or replaced files are moved to `_SyncTrash/<date>/` on the copy by default (or deleted, or left alone).
 - Shows size and file count for every source and destination, with a Matches / Differs badge.
+- Skip files by pattern (`*.tmp`, `Thumbs.db` …), keep a history of every run, and clean up old trash in one click.
+- Google Docs, Sheets and Slides are skipped by default (they aren't real files); you can switch them to be copied as Office files.
 
 <p align="center"><img src="mockups/plans.png" width="900" alt="Sync plans"></p>
 
@@ -59,7 +61,10 @@ CloudMirror has no telemetry and no account of its own. It does not send informa
 - On first start, if rclone is not installed, it downloads rclone from `downloads.rclone.org` when you press the download button.
 - When you add accounts, check or sync, it talks to the cloud services you chose, through rclone, using the credentials you
   entered. Those credentials are stored on your computer in rclone's configuration file and are only sent to the service they belong to.
+- At most every six hours it asks GitHub (`api.github.com`) for the newest CloudMirror version number, to show an "Update available"
+  notice. The request is anonymous and sends nothing about you or your files. Untick "Tell me when a new version is out" to stop it.
 - Its web interface listens only on `127.0.0.1` (your own computer).
+- A history of your runs (folder names and file names) is kept in `%AppData%\CloudMirror\history.json` on your computer only.
 
 ## License
 

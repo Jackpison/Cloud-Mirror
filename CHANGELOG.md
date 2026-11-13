@@ -4,6 +4,19 @@ Versions follow `MAJOR.MINOR.PATCH`. While the app is below 1.0, small changes (
 a button or a setting) bump the patch number (0.1.1, 0.1.2 …). The minor number (0.2.0, 0.3.0 …) is only for a substantial new
 capability. When unsure, use patch.
 
+## 0.1.2
+
+- Google Docs, Sheets and Slides: new option (Options panel, shown when your main account is Google Drive). They are now skipped
+  by default because they aren't real files and can make every run slow or look "changed". Switch to "Copy them as Office files"
+  to keep the old behaviour. **Existing users:** Docs are skipped from this version on unless you change the option.
+- Skip some files: per-sync patterns such as `*.tmp` or `Thumbs.db`, with one-click suggestions. Sizes and counts respect them.
+- Clean up trash: find and permanently delete old `_SyncTrash` snapshots on your destinations (7 / 14 / 30 / 90 days or all),
+  with a preview of what it frees.
+- History: every check and sync is remembered (last 100) with what changed and any errors.
+- Sign-in help for the awkward steps: Google Drive (own client ID) and Filen (API key).
+- "Update available" notice. It asks GitHub for the newest version at most every six hours, anonymously; it can be switched off.
+- Automated tests, including an end-to-end test that runs real syncs between local folders; they run on every push.
+
 ## 0.1.1
 
 - Light / dark mode button in the top bar. It starts with your system setting, remembers your choice, and follows

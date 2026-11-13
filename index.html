@@ -241,12 +241,37 @@ input[type=text]:focus,input[type=password]:focus,select:focus{outline:none;bord
 .hero img{width:96px;height:96px}
 .hero h1{font-size:30px;margin:14px 0 8px}
 .hero p{color:var(--muted);margin:0 0 22px}
+[hidden]{display:none!important}
+.chip.upd{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in oklab, var(--accent) 35%, var(--line));text-decoration:none;cursor:pointer}
+.btn.danger{border-color:transparent;background:var(--bad);color:#fff}
+.btn.danger:hover{filter:brightness(1.08)}
+.check{display:flex;gap:10px;align-items:center;cursor:pointer;font-size:14.5px;margin:14px 0 4px}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.panel .flabel{margin-top:2px}
+.panel .btn.wide{margin-top:12px}
+.note{background:var(--accent-soft);border:1px solid color-mix(in oklab, var(--accent) 25%, var(--line));border-radius:14px;padding:12px 14px;font-size:14px;margin-bottom:14px}
+.note ol{margin:8px 0 0;padding-left:20px} .note a,.hint a{color:var(--accent)}
+code{font:12.5px ui-monospace,"Cascadia Code",Consolas,monospace;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+textarea{font:13.5px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;width:100%;padding:10px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);resize:vertical}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent)}
+.skip{margin-top:16px;border:1px solid var(--line);border-radius:16px;padding:4px 14px 14px}
+.skip summary{padding:10px 0;font-weight:600;width:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.chip-btn{font:inherit;font-size:13px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.chip-btn:hover{border-color:var(--accent);color:var(--accent)}
+.trow{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.trow:last-child{border:0} .trow .sub{margin-top:1px}
+.hentry{border:1px solid var(--line);border-radius:16px;margin:0 0 10px;padding:0 14px;background:var(--surface)}
+.hentry>summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0;width:100%;color:var(--ink)}
+.hentry[open]>summary{border-bottom:1px solid var(--line);margin-bottom:6px}
+.hpair{padding:8px 0 10px;border-bottom:1px dashed var(--line)} .hpair:last-child{border:0}
+.empty-sm{text-align:center;color:var(--muted);padding:34px 0}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brandmark"><img src="/icon.svg" alt="" width="30" height="30"><span>CloudMirror</span><span class="chip" id="ver"></span></div>
+  <div class="brandmark"><img src="/icon.svg" alt="" width="30" height="30"><span>CloudMirror</span><span class="chip" id="ver"></span><a class="chip upd" id="upd" hidden target="_blank" rel="noopener"></a></div>
   <span class="sp"></span>
   <button class="icon-btn" id="theme" data-act="theme" type="button"></button>
   <button class="btn quiet small" data-act="quit">Quit</button>
@@ -270,6 +295,7 @@ const P = {
   star:'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z',
   stop:'M7 7h10v10H7z', sync:'M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4',
   down:'M12 4v11M7 11l5 5 5-5M5 20h14',
+  clock:'M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
   sun:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   moon:'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z'
 };
@@ -297,7 +323,7 @@ const brand = (t, s = 36) => `<span class="brand ${FULL.has(t) ? 'full' : ''}" s
 
 /* ---------- state ---------- */
 let S = null, W = null, TR = null, overlay = null, hiddenJob = '';
-const sizes = {}, stale = new Set(), openKeys = new Set();
+const sizes = {}, openKeys = new Set();
 const typeOf = n => (S.remotes.find(r => r.name === n) || {}).type || '';
 const isRunning = () => !!(S.job && S.job.running);
 const cleanPath = p => String(p || '').replace(/\\/g, '/').split('/').map(s => s.trim()).filter(Boolean).join('/');
@@ -325,13 +351,13 @@ function toast(msg) {
   setTimeout(() => t.remove(), 4500);
 }
 
-function wantSize(remote, path) {
-  const k = remote + ':' + path;
-  let refresh = false;
-  if (stale.has(k)) { stale.delete(k); refresh = true; delete sizes[k]; }
+const sizeKey = (remote, path, pl) => `${remote}:${path}|${S.settings.gdocs}|${pl && pl.exclude ? pl.exclude.join('\n') : ''}`;
+function dropSizes(base) { for (const k of Object.keys(sizes)) if (k.startsWith(base + '|')) delete sizes[k]; }
+function wantSize(remote, path, pl) {
+  const k = sizeKey(remote, path, pl);
   if (sizes[k]) return sizes[k];
   sizes[k] = 'loading';
-  api('size?remote=' + enc(remote) + '&path=' + enc(path) + (refresh ? '&refresh=1' : ''))
+  api('size?remote=' + enc(remote) + '&path=' + enc(path) + (pl && pl.exclude && pl.exclude.length ? '&plan=' + pl.id : ''))
     .then(v => { sizes[k] = v; }).catch(e => { sizes[k] = {error: e.message}; })
     .finally(() => { render(); if (overlay) overlay(); });
   return 'loading';
@@ -366,6 +392,7 @@ async function load() {
   $('#ver').textContent = S.app.version === 'dev' ? 'dev' : 'v' + S.app.version;
   render();
   if (isRunning()) poll();
+  checkUpdate();
 }
 let polling = false;
 async function poll() {
@@ -376,7 +403,7 @@ async function poll() {
       const was = isRunning();
       S = await api('state');
       if (!isRunning()) {
-        if (was && S.job) for (const p of S.job.pairs) { stale.add(p.dest + ':' + p.destPath); stale.add(S.settings.main + ':' + p.folder); }
+        if (was && S.job) for (const p of S.job.pairs) { dropSizes(p.dest + ':' + p.destPath); dropSizes(S.settings.main + ':' + p.folder); }
         break;
       }
       render();
@@ -418,6 +445,16 @@ function sideHTML() {
        ['keep', 'Leave the destination alone', 'Only add new and changed files, never remove.']].map(([v, t, d]) =>
       `<label class="opt"><input type="radio" name="dm" value="${v}" ${mode === v ? 'checked' : ''} ${running ? 'disabled' : ''}><span><b>${t}</b><small>${d}</small></span></label>`).join('')}
     </section>`;
+  const hasDrive = S.remotes.some(r => r.type === 'drive');
+  h += `<section class="panel"><div class="panel-h"><h2>Options</h2></div>`;
+  if (hasDrive) {
+    h += `<div class="flabel">Google Docs, Sheets and Slides</div>` + [
+      ['skip', 'Skip them (recommended)', 'They aren’t real files, so copying them is slow and they can look “changed” on every run.'],
+      ['export', 'Copy them as Office files', 'Saved as .docx, .xlsx and .pptx. Slower, and may be re-copied each time.']].map(([v, t, d]) =>
+      `<label class="opt"><input type="radio" name="gd" value="${v}" ${S.settings.gdocs === v ? 'checked' : ''} ${running ? 'disabled' : ''}><span><b>${t}</b><small>${d}</small></span></label>`).join('');
+  }
+  h += `<label class="check"><input type="checkbox" name="upd" ${S.settings.noUpdateCheck ? '' : 'checked'}><span>Tell me when a new version is out</span></label>
+    <button class="btn wide" data-act="trash" ${running ? 'disabled' : ''}>${ico('trash')} Clean up trash…</button></section>`;
   return h;
 }
 
@@ -429,6 +466,7 @@ function mainHTML() {
   let h = `<div class="page-h"><div><h1>Sync plans</h1><p class="sub">${main
     ? `Each plan keeps a folder of <b>${esc(main)}</b> — or any sub-folder — identical in the places you choose.`
     : 'Choose a main account to begin.'}</p></div><div class="page-actions">`;
+  h += `<button class="btn" data-act="history">${ico('clock')} History</button>`;
   if (plans.length) h += `<button class="btn" data-act="run" data-k="preview" ${running ? 'disabled' : ''}>${ico('search')} Check all</button>
       <button class="btn" data-act="run" data-k="sync" ${running ? 'disabled' : ''}>${ico('sync')} Sync all</button>`;
   h += `<button class="btn primary" data-act="new-plan" ${!main || !others.length || running ? 'disabled' : ''}>${ico('plus')} New sync</button></div></div>`;
@@ -464,9 +502,9 @@ function bannerHTML() {
 }
 
 function planHTML(pl) {
-  const main = S.settings.main, running = isRunning(), ms = wantSize(main, pl.source);
+  const main = S.settings.main, running = isRunning(), ms = wantSize(main, pl.source, pl);
   return `<section class="plan"><header class="plan-h">${brand(typeOf(main), 42)}
-    <div class="plan-src">${crumbs(pl.source)}<div class="sub">${esc(main)} · ${sizeText(ms)}</div></div>
+    <div class="plan-src">${crumbs(pl.source)}<div class="sub">${esc(main)} · ${sizeText(ms)}${pl.exclude && pl.exclude.length ? ` · <span title="${esc(pl.exclude.join(', '))}">skipping ${pl.exclude.length} ${pl.exclude.length === 1 ? 'pattern' : 'patterns'}</span>` : ''}</div></div>
     <div class="plan-actions">
       <button class="icon-btn" data-act="run" data-k="preview" data-id="${pl.id}" title="Check this one for changes" aria-label="Check for changes" ${running ? 'disabled' : ''}>${ico('search')}</button>
       <button class="icon-btn" data-act="run" data-k="sync" data-id="${pl.id}" title="Sync this one now" aria-label="Sync now" ${running ? 'disabled' : ''}>${ico('sync')}</button>
@@ -477,7 +515,7 @@ function planHTML(pl) {
 }
 
 function destRow(pl, t, ms) {
-  const ds = wantSize(t.remote, t.path);
+  const ds = wantSize(t.remote, t.path, pl);
   const pair = jobVisible() ? S.job.pairs.find(p => p.planId === pl.id && p.dest === t.remote && p.destPath === t.path) : null;
   let badge = '';
   if (ds !== 'loading' && ms !== 'loading' && !ds.error && !ms.error) {
@@ -532,7 +570,7 @@ async function saveSettings(next) { S.settings = await api('settings', next); re
 
 /* ---------- sheet helpers ---------- */
 function sheet(html, cls = '') { $('#modal').innerHTML = `<div class="scrim"><div class="sheet ${cls}" role="dialog" aria-modal="true">${html}</div></div>`; }
-function closeSheet() { $('#modal').innerHTML = ''; TR = null; overlay = null; }
+function closeSheet() { $('#modal').innerHTML = ''; TR = null; TRASH = null; overlay = null; }
 const stepper = n => `<ol class="steps"><li data-n="1" class="${n === 1 ? 'on' : 'done'}">Folder</li><li data-n="2" class="${n === 2 ? 'on' : ''}">Destinations</li></ol>`;
 
 /* ---------- folder tree ---------- */
@@ -565,7 +603,7 @@ async function expandTo(path) {
 }
 function nodeSize(path) {
   if (TR.virtual.has(path)) return '';
-  const v = sizes[TR.remote + ':' + path];
+  const v = sizes[sizeKey(TR.remote, path)];
   if (v === 'loading') return '<span class="spin"></span>';
   if (v && !v.error && !v.missing) return `${fmtBytes(v.bytes)} · ${files(v.count)}`;
   return `<button class="link tiny" data-act="t-size" data-p="${esc(path)}">Size</button>`;
@@ -594,7 +632,7 @@ function updateFoot() {
   const f = $('#selsum'), btn = $('#tpick'); if (!f || !TR) return;
   if (!TR.sel) { f.innerHTML = 'Select a folder'; }
   else {
-    const v = TR.virtual.has(TR.sel) ? null : sizes[TR.remote + ':' + TR.sel];
+    const v = TR.virtual.has(TR.sel) ? null : sizes[sizeKey(TR.remote, TR.sel)];
     f.innerHTML = `${crumbs(TR.sel)} <span>${v === 'loading' ? '<span class="spin"></span>' : v && !v.error && !v.missing ? sizeText(v) : TR.virtual.has(TR.sel) ? 'will be created' : ''}</span>`;
   }
   if (btn) btn.disabled = !TR.sel;
@@ -614,7 +652,7 @@ function treeNew() {
 /* ---------- plan editor ---------- */
 function openPlanEditor(id) {
   const pl = id ? S.settings.plans.find(p => p.id === id) : null;
-  W = {id: pl ? pl.id : '', source: pl ? pl.source : '', targets: {}};
+  W = {id: pl ? pl.id : '', source: pl ? pl.source : '', targets: {}, exclude: pl && pl.exclude ? pl.exclude.join('\n') : ''};
   for (const r of S.remotes.filter(r => r.name !== S.settings.main)) {
     const t = pl && pl.targets.find(t => t.remote === r.name);
     W.targets[r.name] = {on: !!t, path: t ? t.path : ''};
@@ -640,7 +678,12 @@ function showDestinations() {
     <div class="sheet-b"><div class="src-chip">${brand(typeOf(main), 36)}<div><div class="lbl">Source · ${esc(main)}</div>${crumbs(W.source)}</div><span class="sp"></span>
       <button class="btn small quiet" data-act="w-back">Change</button></div>
     <h3>Where should it be copied?</h3><p class="hint">Switch on the accounts you want, then choose the folder on each. It starts as the same path — change it if you like.</p>
-    ${others.map(destCard).join('')}<div id="werr"></div></div>
+    ${others.map(destCard).join('')}
+    <details class="skip" ${W.exclude.trim() ? 'open' : ''}><summary>Skip some files (optional)</summary>
+      <p class="hint">One pattern per line. <code>*</code> matches any characters: <code>*.tmp</code> skips every .tmp file and <code>node_modules/**</code> skips a folder. Skipped files are never copied, changed or removed.</p>
+      <div class="chips">${['Thumbs.db', '.DS_Store', 'desktop.ini', '*.tmp', '~$*'].map(c => `<button class="chip-btn" type="button" data-act="ex-add" data-p="${esc(c)}">+ ${esc(c)}</button>`).join('')}</div>
+      <textarea id="exclude" rows="4" spellcheck="false" placeholder="for example: *.tmp">${esc(W.exclude)}</textarea></details>
+    <div id="werr"></div></div>
     <div class="sheet-f"><button class="btn" data-act="w-close">Cancel</button><button class="btn primary" data-act="w-save">${ico('check')} Save sync</button></div>`);
   overlay = updateDestInfo;
   updateDestInfo();
@@ -685,7 +728,8 @@ async function savePlan() {
   const targets = Object.entries(W.targets).filter(([, t]) => t.on).map(([remote, t]) => ({remote, path: cleanPath(t.path)}));
   if (!targets.length) return err('Switch on at least one account to copy to.');
   if (targets.some(t => !t.path)) return err('Choose a destination folder for each account that is switched on.');
-  const plans = S.settings.plans.slice(), plan = {id: W.id, source: W.source, targets};
+  const exclude = W.exclude.split('\n').map(x => x.trim()).filter(Boolean);
+  const plans = S.settings.plans.slice(), plan = {id: W.id, source: W.source, targets, exclude};
   const i = plans.findIndex(p => p.id === W.id); i >= 0 ? plans[i] = plan : plans.push(plan);
   try { await saveSettings({...S.settings, plans}); closeSheet(); W = null; } catch (e) { err(e.message); }
 }
@@ -712,6 +756,13 @@ function pickProv(type) {
     <div class="sheet-f"><button class="btn" data-act="add-acct">Back</button><button class="btn primary" id="go" data-act="acct-go" data-t="${esc(type)}">Continue</button></div>`, 'narrow');
   $('#pname').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
 }
+const GUIDE = 'https://rclone.org/drive/#making-your-own-client-id';
+const HELP = {
+  'drive:config_shared_client_id': `<div class="note"><b>You can continue.</b> Google is retiring rclone’s built-in sign-in during 2026, so it’s best to create your own free Google credentials. For now choose <b>Yes</b> to keep going. Guide: <a href="${GUIDE}" target="_blank" rel="noopener">making your own client ID</a>.</div>`,
+  'drive:client_id': `<div class="note"><b>Optional.</b> Leave this empty to use rclone’s built-in sign-in for now. To use your own (recommended, about 10 minutes): create OAuth credentials in the Google Cloud Console, then paste the <b>Client ID</b> here and the <b>Client secret</b> on the next screen. <a href="${GUIDE}" target="_blank" rel="noopener">Step-by-step guide</a>.</div>`,
+  'drive:client_secret': `<div class="note"><b>Optional.</b> The client secret that belongs to the Client ID you just entered. Leave it empty if you left the Client ID empty.</div>`,
+  'filen:api_key': `<div class="note"><b>Filen only gives this key out through its command-line tool.</b><ol><li>Download the <a href="https://github.com/FilenCloudDienste/filen-cli" target="_blank" rel="noopener">Filen CLI</a> and open it.</li><li>Log in, then run <code>filen export-api-key</code>.</li><li>Paste the key it prints here.</li></ol></div>`
+};
 async function acctStep(req) {
   const btn = $('#go'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Working…'; }
   const note = setTimeout(() => { const w = $('#werr'); if (w) w.innerHTML = '<p class="help">If a sign-in page opened in your browser, finish signing in there — this window continues by itself.</p>'; }, 2500);
@@ -735,11 +786,79 @@ async function acctStep(req) {
        <datalist id="exl">${ex.map(e => `<option value="${esc(e.Value)}">${esc(e.Help || '')}</option>`).join('')}</datalist>
        ${o.Required ? '' : '<p class="hint" style="margin-top:8px">Optional — leave empty if unsure.</p>'}`;
   sheet(`<div class="sheet-h">${brand(req.type, 40)}<h3>${esc(svc(req.type))}</h3></div><div class="sheet-b">
-    <p class="help">${esc(o.Help).replace(/https?:\/\/[^\s<)]+/g, u => `<a href="${u.replace(/[.,]$/, '')}" target="_blank" rel="noopener">${u}</a>`)}</p>
+    ${HELP[req.type + ':' + o.Name] || ''}<p class="help">${esc(o.Help).replace(/https?:\/\/[^\s<)]+/g, u => `<a href="${u.replace(/[.,]$/, '')}" target="_blank" rel="noopener">${u}</a>`)}</p>
     ${res.error ? `<div class="err" style="margin:0 0 12px">${esc(res.error)}</div>` : ''}${input}<div id="werr"></div></div>
     <div class="sheet-f"><button class="btn" data-act="a-cancel" data-n="${esc(req.name)}">Cancel</button><button class="btn primary" id="go" data-act="acct-next">Continue</button></div>`, 'narrow');
   window._acct = {name: req.name, type: req.type, state: res.state, pw: o.IsPassword};
   const a = $('#ans'); if (a) { a.focus(); a.onkeydown = e => { if (e.key === 'Enter') $('#go').click(); }; }
+}
+
+/* ---------- trash cleanup ---------- */
+let TRASH = null;
+async function openTrash() { TRASH = {days: 30, res: null, busy: true, done: false, seq: 0}; drawTrash(); scanTrash(); }
+async function scanTrash() {
+  const T = TRASH, my = ++T.seq; T.busy = true; T.res = null; drawTrash();
+  try { const r = await api('trash/scan', {days: T.days}); if (TRASH === T && my === T.seq) { T.res = r; T.busy = false; } }
+  catch (e) { if (TRASH === T && my === T.seq) { T.res = []; T.busy = false; toast(e.message); } }
+  if (TRASH === T && my === T.seq) drawTrash();
+}
+function drawTrash() {
+  const T = TRASH; if (!T) return;
+  const res = T.res || [], old = res.reduce((n, r) => n + r.old, 0), bytes = res.reduce((n, r) => n + r.bytes, 0), nfiles = res.reduce((n, r) => n + r.files, 0);
+  const rows = T.busy ? '<div class="trow"><span class="spin"></span> Looking in your accounts…</div>' : res.length ? res.map(r => {
+    const txt = r.error ? `<span style="color:var(--bad)">${esc(r.error)}</span>`
+      : !r.snapshots ? 'No trash'
+      : T.done ? `${fmtN(r.cleaned)} ${r.cleaned === 1 ? 'snapshot' : 'snapshots'} deleted`
+      : !r.old ? `${r.snapshots} ${r.snapshots === 1 ? 'snapshot' : 'snapshots'} — none that old`
+      : `${r.old} of ${r.snapshots} ${r.snapshots === 1 ? 'snapshot' : 'snapshots'} can go · ${files(r.files)} · ${fmtBytes(r.bytes)}`;
+    return `<div class="trow">${brand(typeOf(r.remote), 34)}<div><b>${esc(r.remote)}</b><div class="sub">${txt}</div></div></div>`;
+  }).join('') : '<div class="empty-sm">No other accounts yet.</div>';
+  sheet(`<div class="sheet-h"><h3>Clean up trash</h3><span class="sp"></span><button class="icon-btn" data-act="w-close" aria-label="Close">${ico('x')}</button></div>
+    <div class="sheet-b"><p class="hint">When a sync removes or replaces a file, the old version is kept in a <b>_SyncTrash</b> folder on the destination. Delete the old ones to free space. Your copies are not touched.</p>
+    <label class="flabel">Delete trash older than</label>
+    <select data-chg="trash-days" ${T.busy ? 'disabled' : ''}>${[[7, '7 days'], [14, '14 days'], [30, '30 days'], [90, '90 days'], [0, 'any age (everything)']].map(([v, l]) => `<option value="${v}" ${T.days === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <div style="margin-top:12px">${rows}</div></div>
+    <div class="sheet-f"><div class="sel">${!T.busy && !T.done && old ? `Frees ${fmtBytes(bytes)} · ${files(nfiles)}` : ''}</div>
+    <button class="btn" data-act="w-close">Close</button>
+    ${T.done ? '' : `<button class="btn danger" data-act="trash-clean" ${T.busy || !old || isRunning() ? 'disabled' : ''}>Delete permanently</button>`}</div>`, 'narrow');
+}
+async function cleanTrash() {
+  const T = TRASH, old = (T.res || []).reduce((n, r) => n + r.old, 0), bytes = (T.res || []).reduce((n, r) => n + r.bytes, 0);
+  if (!confirm(`Permanently delete ${old} trash ${old === 1 ? 'snapshot' : 'snapshots'} (${fmtBytes(bytes)})? This can’t be undone.`)) return;
+  T.busy = true; drawTrash();
+  try { T.res = await api('trash/clean', {days: T.days}); T.done = true; } catch (e) { toast(e.message); }
+  T.busy = false; drawTrash();
+}
+
+/* ---------- history ---------- */
+function histEntry(e, i) {
+  const prev = e.kind === 'preview', when = new Date(e.started).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'});
+  const tot = e.pairs.reduce((n, p) => n + p.nAdded + p.nUpdated + p.nRemoved, 0), bad = e.pairs.filter(p => p.status === 'error').length;
+  const sum = tot ? `${fmtN(tot)} ${tot === 1 ? 'change' : 'changes'} ${prev ? 'found' : 'applied'}` : 'no changes';
+  const body = e.pairs.map(p => {
+    const c = p.nAdded + p.nUpdated + p.nRemoved;
+    return `<div class="hpair"><div class="d-name"><b>${esc(p.folder)}</b><span class="muted">→</span><b>${esc(p.dest)}</b>${crumbs(p.destPath)}
+      <span class="tag ${p.status === 'error' ? 'bad' : p.status === 'done' ? 'ok' : 'mute'}">${p.status === 'error' ? 'Problem' : p.status === 'done' ? 'Done' : 'Stopped'}</span></div>
+      ${c ? `<div class="counts"><span class="tag ok">${fmtN(p.nAdded)} ${prev ? 'to add' : 'added'}</span><span class="tag warn">${fmtN(p.nUpdated)} ${prev ? 'to update' : 'updated'}</span>${e.mode === 'keep' ? '' : `<span class="tag bad">${fmtN(p.nRemoved)} ${prev ? 'to remove' : 'removed'}</span>`}</div>
+      <details><summary>Show files</summary><div class="files">${p.added.map(f => `<span class="a">+ ${esc(f)}</span>`).concat(p.updated.map(f => `<span class="u">~ ${esc(f)}</span>`), p.removed.map(f => `<span class="r">− ${esc(f)}</span>`)).join('\n')}${c > p.added.length + p.updated.length + p.removed.length ? '\n… and more' : ''}</div></details>` : '<div class="sub">No changes</div>'}
+      ${p.errors.map(x => `<div class="err">${esc(x)}</div>`).join('')}</div>`;
+  }).join('');
+  return `<details class="hentry" ${i === 0 ? 'open' : ''}><summary><span class="tag ${prev ? 'mute' : 'info'}">${prev ? 'Check' : 'Sync'}</span><b>${esc(when)}</b><span class="sub">${sum}</span>${bad ? '<span class="tag bad">problems</span>' : ''}</summary>${body}</details>`;
+}
+async function openHistory() {
+  sheet('<div class="sheet-b"><span class="spin"></span> Loading…</div>', 'narrow');
+  let list;
+  try { list = await api('history'); } catch (e) { closeSheet(); toast(e.message); return; }
+  sheet(`<div class="sheet-h"><h3>History</h3><span class="sp"></span><button class="icon-btn" data-act="w-close" aria-label="Close">${ico('x')}</button></div>
+    <div class="sheet-b">${list.length ? list.map(histEntry).join('') : '<div class="empty-sm">Nothing here yet. Every check and sync you run is listed here.</div>'}</div>
+    <div class="sheet-f">${list.length ? '<button class="btn" data-act="history-clear">Clear history</button>' : ''}<span class="sp"></span><button class="btn" data-act="w-close">Close</button></div>`);
+}
+
+/* ---------- update notice ---------- */
+async function checkUpdate() {
+  const a = $('#upd');
+  try { const u = await api('update'); if (u.newer) { a.hidden = false; a.href = u.url; a.textContent = 'Update available · v' + u.latest; } else a.hidden = true; }
+  catch (e) { a.hidden = true; }
 }
 
 /* ---------- events ---------- */
@@ -753,6 +872,16 @@ document.addEventListener('click', async e => {
       catch (er) { el.disabled = false; el.innerHTML = ico('down') + ' Try again'; $('#msg').innerHTML = `<div class="err" style="margin-top:14px">${esc(er.message)}</div>`; }
       break; }
     case 'theme': toggleTheme(); break;
+    case 'history': openHistory(); break;
+    case 'history-clear':
+      if (!confirm('Clear the whole history? This only removes the list, not any files.')) return;
+      await api('history/clear', {}).catch(er => toast(er.message)); openHistory(); break;
+    case 'trash': openTrash(); break;
+    case 'trash-clean': cleanTrash(); break;
+    case 'ex-add': {
+      const lines = W.exclude.split('\n').map(x => x.trim());
+      if (!lines.includes(d.p)) W.exclude = (W.exclude.trim() ? W.exclude.replace(/\s+$/, '') + '\n' : '') + d.p;
+      $('#exclude').value = W.exclude; break; }
     case 'quit':
       if (isRunning() && !confirm('A sync is running. Quit and stop it?')) return;
       await api('quit', {}).catch(() => {});
@@ -798,6 +927,9 @@ document.addEventListener('click', async e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.name === 'dm') { saveSettings({...S.settings, deleteMode: t.value}).catch(er => { toast(er.message); render(); }); return; }
+  if (t.name === 'gd') { saveSettings({...S.settings, gdocs: t.value}).catch(er => { toast(er.message); render(); }); return; }
+  if (t.name === 'upd') { saveSettings({...S.settings, noUpdateCheck: !t.checked}).then(checkUpdate).catch(er => { toast(er.message); render(); }); return; }
+  if (t.dataset.chg === 'trash-days') { TRASH.days = +t.value; scanTrash(); return; }
   if (t.dataset.chg === 'd-toggle') {
     const x = W.targets[t.dataset.r]; x.on = t.checked; if (x.on && !x.path) x.path = W.source; showDestinations(); return;
   }
@@ -805,7 +937,9 @@ document.addEventListener('change', e => {
   if (t.classList.contains('pin')) { const x = W.targets[t.dataset.r]; x.path = cleanPath(t.value); t.value = x.path; updateDestInfo(); }
 });
 document.addEventListener('input', e => {
-  const t = e.target; if (t.classList && t.classList.contains('pin')) W.targets[t.dataset.r].path = t.value;
+  const t = e.target;
+  if (t.id === 'exclude') W.exclude = t.value;
+  if (t.classList && t.classList.contains('pin')) W.targets[t.dataset.r].path = t.value;
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
