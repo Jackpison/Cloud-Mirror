@@ -16,6 +16,8 @@ capability. When unsure, use patch.
 - Sign-in help for the awkward steps: Google Drive (own client ID) and Filen (API key).
 - "Update available" notice. It asks GitHub for the newest version at most every six hours, anonymously; it can be switched off.
 - Automated tests, including an end-to-end test that runs real syncs between local folders; they run on every push.
+- Fix: CloudMirror kept running invisibly after the browser tab was closed. It now closes itself about 20 seconds after the
+  last page goes away, even if the browser crashes (a sync in progress is allowed to finish first). Quit still closes it immediately.
 
 ## 0.1.1
 

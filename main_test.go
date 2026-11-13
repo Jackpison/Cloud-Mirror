@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -327,5 +328,64 @@ func TestSyncEndToEnd(t *testing.T) {
 	}
 	if !exists(filepath.Join(dest, "a.jpg")) {
 		t.Error("cleaning the trash must not touch the copies")
+	}
+}
+
+func TestShouldExit(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		name    string
+		since   time.Time
+		pages   int
+		running bool
+		want    bool
+	}{
+		{"a page is open", now.Add(-time.Hour), 1, false, false},
+		{"page just closed", now.Add(-2 * time.Second), 0, false, false},
+		{"nobody came back", now.Add(-exitGrace - time.Second), 0, false, true},
+		{"a sync is running, page gone", now.Add(-time.Hour), 0, true, false},
+		{"still inside the start-up allowance", now.Add(startGrace), 0, false, false},
+	}
+	for _, c := range cases {
+		if got := shouldExit(now, c.since, c.pages, c.running); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestLiveConnectionIsCounted(t *testing.T) {
+	a := newApp(t.TempDir())
+	srv := httptest.NewServer(a.routes())
+	defer srv.Close()
+	pages := func() int { a.mu.Lock(); defer a.mu.Unlock(); return a.pages }
+	wait := func(want int) {
+		for i := 0; i < 100; i++ {
+			if pages() == want {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		t.Fatalf("pages = %d, want %d", pages(), want)
+	}
+	ctx1, close1 := context.WithCancel(context.Background())
+	ctx2, close2 := context.WithCancel(context.Background())
+	for _, ctx := range []context.Context{ctx1, ctx2} {
+		req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/live", nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+	}
+	wait(2)
+	close1() // one tab closes: the app is still needed
+	wait(1)
+	close2()
+	wait(0)
+	a.mu.Lock()
+	since := a.noPageSince
+	a.mu.Unlock()
+	if time.Since(since) > 5*time.Second {
+		t.Error("the moment the last page left should be recorded")
 	}
 }

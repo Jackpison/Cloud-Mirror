@@ -20,5 +20,7 @@ Format `MAJOR.MINOR.PATCH`, currently below 1.0.
 - Test before pushing: `go vet ./...`, `go test ./...` (put rclone on PATH so the end-to-end test runs instead of skipping), run the app
   against local `alias` remotes, and drive UI changes with Playwright. New behaviour gets a test in `main_test.go`.
   Do not say something was tested on Windows or on real cloud accounts unless it was.
+- The app has no window of its own and no console on Windows: it must exit by itself when the page is gone (`lifecycle.go`).
+  Never remove the live-connection logic. Set `CLOUDMIRROR_KEEP_RUNNING=1` when you need a test server that stays up.
 - Brand icons are our own simplified drawings, not official assets.
 - Commit straight to `main` with a short descriptive message.

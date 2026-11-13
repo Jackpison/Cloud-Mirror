@@ -18,7 +18,7 @@ other cloud accounts, using [rclone](https://rclone.org) underneath.
 ## Use
 
 Download `CloudMirror.exe` from the [latest release](https://github.com/Jackpison/Cloud-Mirror/releases/latest) and double-click it. It opens in your browser at `http://127.0.0.1:47800` and downloads
-rclone on first run. Use **Quit** in the top right to close it. Settings are stored in
+rclone on first run. Closing the browser tab closes CloudMirror too (after about 20 seconds; a sync in progress finishes first), or use **Quit** in the top right to close it at once. Settings are stored in
 `%AppData%\CloudMirror`; accounts are stored in rclone's normal config file.
 
 ### "Windows protected your PC"

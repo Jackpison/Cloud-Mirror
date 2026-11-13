@@ -107,20 +107,22 @@ type sizeInfo struct {
 type App struct {
 	dir string
 
-	mu        sync.Mutex
-	settings  Settings
-	job       *Job
-	sizes     map[string]sizeInfo
-	providers json.RawMessage
-	acctStop  context.CancelFunc
-	history   []HistEntry
-	upd       updateCache
+	mu          sync.Mutex
+	settings    Settings
+	job         *Job
+	sizes       map[string]sizeInfo
+	providers   json.RawMessage
+	acctStop    context.CancelFunc
+	history     []HistEntry
+	pages       int       // browser pages currently connected (see lifecycle.go)
+	noPageSince time.Time // when the last page went away (or the app started)
+	upd         updateCache
 
 	sizeSem chan struct{}
 }
 
 func newApp(dir string) *App {
-	a := &App{dir: dir, sizes: map[string]sizeInfo{}, sizeSem: make(chan struct{}, 3)}
+	a := &App{dir: dir, sizes: map[string]sizeInfo{}, sizeSem: make(chan struct{}, 3), noPageSince: time.Now().Add(startGrace)}
 	os.MkdirAll(a.dir, 0o755)
 	a.settings = Settings{Plans: []Plan{}, DeleteMode: "trash", GDocs: "skip"}
 	if b, err := os.ReadFile(filepath.Join(a.dir, "settings.json")); err == nil {
@@ -177,6 +179,7 @@ func (a *App) routes() http.Handler {
 	api("trash/scan", a.hTrash(false))
 	api("trash/clean", a.hTrash(true))
 	api("update", a.hUpdate)
+	mux.HandleFunc("/api/live", a.hLive)
 	api("quit", func(r *http.Request) (any, error) {
 		a.stopAll()
 		go func() { time.Sleep(300 * time.Millisecond); os.Exit(0) }()
@@ -211,6 +214,9 @@ func main() {
 	}
 	if os.Getenv("CLOUDMIRROR_NO_BROWSER") == "" {
 		go openBrowser("http://" + addr)
+	}
+	if os.Getenv("CLOUDMIRROR_KEEP_RUNNING") == "" {
+		go a.watchPages()
 	}
 	http.Serve(ln, a.routes())
 }
