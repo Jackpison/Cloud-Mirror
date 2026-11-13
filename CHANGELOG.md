@@ -3,6 +3,11 @@
 Versions follow `MAJOR.MINOR.PATCH`. While the app is below 1.0, a new set of features bumps the minor
 number (0.2.0, 0.3.0 …) and bug fixes bump the patch number (0.1.1, 0.1.2 …).
 
+## 0.2.0
+
+- Light / dark mode button in the top bar. It starts with your system setting, remembers your choice, and follows
+  the system again only until you press it.
+
 ## 0.1.0
 
 First release.

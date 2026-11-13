@@ -5,9 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CloudMirror</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem('cm-theme'); } catch (e) {}
+  if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
 <style>
 :root{
-  color-scheme: light dark;
+  color-scheme: light;
   --bg:#f4f6fb; --surface:#ffffff; --surface-2:#f7f8fc; --ink:#0d1222; --muted:#5d667a; --faint:#8b94a7; --line:#e4e8f0;
   --accent:#4a5cf5; --accent-2:#7c5cf5; --accent-soft:color-mix(in oklab, var(--accent) 9%, var(--surface));
   --ok:#0b7f4d; --ok-bg:#e1f5eb; --warn:#935300; --warn-bg:#fff0d3; --bad:#bd3329; --bad-bg:#fde8e5;
@@ -16,8 +24,9 @@
   --shadow-lg:0 24px 60px -20px rgba(15,23,42,.35);
   --r:20px;
 }
-@media (prefers-color-scheme: dark){
-  :root{
+@media all{
+  :root[data-theme="dark"]{
+    color-scheme: dark;
     --bg:#090b12; --surface:#131723; --surface-2:#191e2c; --ink:#edf0f7; --muted:#9aa3b8; --faint:#6f7890; --line:#252b3c;
     --accent:#7b88ff; --accent-2:#a083ff; --accent-soft:color-mix(in oklab, var(--accent) 14%, var(--surface));
     --ok:#6fdba5; --ok-bg:#143325; --warn:#f2c25f; --warn-bg:#392d12; --bad:#ff948b; --bad-bg:#3f1f1d;
@@ -239,6 +248,7 @@ input[type=text]:focus,input[type=password]:focus,select:focus{outline:none;bord
 <header class="topbar">
   <div class="brandmark"><img src="/icon.svg" alt="" width="30" height="30"><span>CloudMirror</span><span class="chip" id="ver"></span></div>
   <span class="sp"></span>
+  <button class="icon-btn" id="theme" data-act="theme" type="button"></button>
   <button class="btn quiet small" data-act="quit">Quit</button>
 </header>
 <div id="root"></div>
@@ -259,7 +269,9 @@ const P = {
   arrow:'M5 12h14M13 6l6 6-6 6', check:'M5 12.5l4.5 4.5L19 7', search:'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.5-4.5',
   star:'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z',
   stop:'M7 7h10v10H7z', sync:'M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4',
-  down:'M12 4v11M7 11l5 5 5-5M5 20h14'
+  down:'M12 4v11M7 11l5 5 5-5M5 20h14',
+  sun:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  moon:'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z'
 };
 const ico = (n, c = '') => `<svg class="ico ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[n]}"/></svg>`;
 
@@ -330,6 +342,23 @@ function sizeText(v) {
   if (v.missing) return 'not created yet';
   return `${fmtBytes(v.bytes)} · ${files(v.count)}`;
 }
+
+/* ---------- theme ---------- */
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  const b = $('#theme'); if (!b) return;
+  b.innerHTML = ico(t === 'dark' ? 'sun' : 'moon');
+  const label = t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  b.title = label; b.setAttribute('aria-label', label);
+}
+function storedTheme() { try { return localStorage.getItem('cm-theme'); } catch (e) { return null; } }
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('cm-theme', next); } catch (e) {}
+  applyTheme(next);
+}
+applyTheme(document.documentElement.dataset.theme);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => { if (!storedTheme()) applyTheme(e.matches ? 'dark' : 'light'); });
 
 /* ---------- load / poll ---------- */
 async function load() {
@@ -723,6 +752,7 @@ document.addEventListener('click', async e => {
       try { await api('install', {}); await load(); }
       catch (er) { el.disabled = false; el.innerHTML = ico('down') + ' Try again'; $('#msg').innerHTML = `<div class="err" style="margin-top:14px">${esc(er.message)}</div>`; }
       break; }
+    case 'theme': toggleTheme(); break;
     case 'quit':
       if (isRunning() && !confirm('A sync is running. Quit and stop it?')) return;
       await api('quit', {}).catch(() => {});
