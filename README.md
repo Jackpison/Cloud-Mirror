@@ -40,3 +40,7 @@ go install github.com/tc-hib/go-winres@v0.3.3
 go-winres make --in winres/winres.json --out rsrc --arch amd64
 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-H=windowsgui -s -w -X main.version=0.1.0" -o dist/CloudMirror.exe .
 ```
+
+## License
+
+[MIT](LICENSE). CloudMirror runs the separate [rclone](https://rclone.org) program (also MIT licensed), which it downloads on first start.
