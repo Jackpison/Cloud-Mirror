@@ -1,9 +1,20 @@
 name: Release
 
-# Publishes CloudMirror.exe when a version tag such as v0.1.0 is pushed.
+# Run it from the Actions tab ("Run workflow", type a version such as 0.1.0),
+# or push a version tag such as v0.1.0. Either way it builds CloudMirror.exe
+# and publishes it as a release.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, for example 0.1.0"
+        required: true
+      remove_old_latest:
+        description: "Also delete the old release and tag called 'latest'"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,16 +32,27 @@ jobs:
       - run: go vet ./...
       - name: Version
         id: v
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then V="$INPUT_VERSION"; else V="$GITHUB_REF_NAME"; fi
+          V="${V#v}"
+          echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Version must look like 1.2.3, got: $V"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
       - name: Embed icon, version info and manifest
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
         run: |
           go install github.com/tc-hib/go-winres@v0.3.3
           "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --out rsrc --arch amd64 \
-            --product-version "${{ steps.v.outputs.version }}" --file-version "${{ steps.v.outputs.version }}"
+            --product-version "$VERSION" --file-version "$VERSION"
       - name: Build CloudMirror.exe
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
         run: |
           GOOS=windows GOARCH=amd64 go build -trimpath \
-            -ldflags "-H=windowsgui -s -w -X main.version=${{ steps.v.outputs.version }}" -o CloudMirror.exe .
+            -ldflags "-H=windowsgui -s -w -X main.version=$VERSION" -o CloudMirror.exe .
           sha256sum CloudMirror.exe > SHA256SUMS.txt
           cat SHA256SUMS.txt
       - name: Attest build provenance
@@ -40,6 +62,14 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+          REMOVE_OLD: ${{ inputs.remove_old_latest }}
         run: |
-          gh release create "$GITHUB_REF_NAME" CloudMirror.exe SHA256SUMS.txt \
-            --title "CloudMirror ${GITHUB_REF_NAME}" --generate-notes
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" CloudMirror.exe SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" CloudMirror.exe SHA256SUMS.txt --target "$GITHUB_SHA" --latest \
+              --title "CloudMirror $TAG" --generate-notes
+          fi
+          if [ "$REMOVE_OLD" = "true" ]; then gh release delete latest --cleanup-tag --yes || true; fi
