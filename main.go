@@ -7,7 +7,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,19 +30,41 @@ import (
 //go:embed index.html
 var indexHTML []byte
 
+//go:embed assets/icon.svg
+var iconSVG []byte
+
+// version is set at build time: -ldflags "-X main.version=0.1.0"
+var version = "dev"
+
 const addr = "127.0.0.1:47800"
 const trashDir = "_SyncTrash"
 const listCap = 300
 
+// Target is a folder on another account that a plan keeps in step with its source.
+type Target struct {
+	Remote string `json:"remote"`
+	Path   string `json:"path"`
+}
+
+// Plan keeps one folder (or sub-folder) of the main account mirrored to one or more targets.
+type Plan struct {
+	ID      string   `json:"id"`
+	Source  string   `json:"source"`
+	Targets []Target `json:"targets"`
+}
+
 type Settings struct {
 	Main       string              `json:"main"`
-	Folders    map[string][]string `json:"folders"` // folder path on main -> destination accounts
+	Plans      []Plan              `json:"plans"`
 	DeleteMode string              `json:"deleteMode"`
+	Folders    map[string][]string `json:"folders,omitempty"` // legacy format, migrated on load
 }
 
 type Pair struct {
+	PlanID   string   `json:"planId"`
 	Folder   string   `json:"folder"`
 	Dest     string   `json:"dest"`
+	DestPath string   `json:"destPath"`
 	Status   string   `json:"status"` // pending, running, done, error, cancelled
 	Added    []string `json:"added"`
 	Updated  []string `json:"updated"`
@@ -94,13 +118,11 @@ func main() {
 	}
 	a := &App{dir: filepath.Join(base, "CloudMirror"), sizes: map[string]sizeInfo{}, sizeSem: make(chan struct{}, 3)}
 	os.MkdirAll(a.dir, 0o755)
-	a.settings = Settings{Folders: map[string][]string{}, DeleteMode: "trash"}
+	a.settings = Settings{Plans: []Plan{}, DeleteMode: "trash"}
 	if b, err := os.ReadFile(filepath.Join(a.dir, "settings.json")); err == nil {
 		json.Unmarshal(b, &a.settings)
-		if a.settings.Folders == nil {
-			a.settings.Folders = map[string][]string{}
-		}
 	}
+	a.migrate()
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -113,6 +135,11 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Write(indexHTML)
+	})
+	mux.HandleFunc("/icon.svg", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/svg+xml")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(iconSVG)
 	})
 	api := func(path string, h func(r *http.Request) (any, error)) {
 		mux.HandleFunc("/api/"+path, func(w http.ResponseWriter, r *http.Request) {
@@ -158,6 +185,41 @@ func main() {
 		go openBrowser("http://" + addr)
 	}
 	http.Serve(ln, guarded)
+}
+
+// migrate converts the first release's "folder -> accounts" choices into plans.
+func (a *App) migrate() {
+	s := &a.settings
+	if s.Plans == nil {
+		s.Plans = []Plan{}
+	}
+	if len(s.Plans) == 0 && len(s.Folders) > 0 {
+		names := make([]string, 0, len(s.Folders))
+		for f := range s.Folders {
+			names = append(names, f)
+		}
+		sort.Strings(names)
+		for _, f := range names {
+			if len(s.Folders[f]) == 0 {
+				continue
+			}
+			pl := Plan{ID: newID(), Source: f, Targets: []Target{}}
+			for _, d := range s.Folders[f] {
+				pl.Targets = append(pl.Targets, Target{Remote: d, Path: f})
+			}
+			s.Plans = append(s.Plans, pl)
+		}
+	}
+	if s.Folders != nil {
+		s.Folders = nil
+		a.saveLocked()
+	}
+}
+
+func newID() string {
+	b := make([]byte, 4)
+	crand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func openBrowser(url string) {
@@ -280,6 +342,7 @@ func (a *App) hState(r *http.Request) (any, error) {
 	defer a.mu.Unlock()
 	jb, _ := json.Marshal(a.job)
 	return map[string]any{
+		"app":      map[string]string{"version": version},
 		"engine":   map[string]any{"found": found, "version": ver},
 		"remotes":  rs,
 		"settings": a.settings,
@@ -464,17 +527,22 @@ func (a *App) hAccountDelete(r *http.Request) (any, error) {
 	a.mu.Lock()
 	if a.settings.Main == in.Name {
 		a.settings.Main = ""
-		a.settings.Folders = map[string][]string{}
+		a.settings.Plans = []Plan{}
 	}
-	for f, ds := range a.settings.Folders {
-		keep := []string{}
-		for _, d := range ds {
-			if d != in.Name {
-				keep = append(keep, d)
+	kept := []Plan{}
+	for _, pl := range a.settings.Plans {
+		ts := []Target{}
+		for _, t := range pl.Targets {
+			if t.Remote != in.Name {
+				ts = append(ts, t)
 			}
 		}
-		a.settings.Folders[f] = keep
+		if len(ts) > 0 {
+			pl.Targets = ts
+			kept = append(kept, pl)
+		}
 	}
+	a.settings.Plans = kept
 	a.saveLocked()
 	a.mu.Unlock()
 	return map[string]bool{"ok": true}, nil
@@ -545,40 +613,86 @@ func (a *App) saveLocked() {
 	os.WriteFile(filepath.Join(a.dir, "settings.json"), b, 0o600)
 }
 
+var idRe = regexp.MustCompile(`^[a-f0-9]{8}$`)
+
+func firstSeg(p string) string { return strings.SplitN(p, "/", 2)[0] }
+
+// normalizePlans validates plans and rejects destinations that would overwrite each other.
+func normalizePlans(main string, in []Plan) ([]Plan, error) {
+	type dest struct{ remote, path string }
+	var all []dest
+	out := []Plan{}
+	seen := map[string]bool{}
+	for _, p := range in {
+		src, err := cleanFolder(p.Source)
+		if err != nil || src == "" {
+			return nil, errors.New("choose a folder to sync")
+		}
+		if strings.EqualFold(firstSeg(src), trashDir) {
+			return nil, errors.New("the trash folder cannot be synced")
+		}
+		np := Plan{ID: p.ID, Source: src, Targets: []Target{}}
+		if !idRe.MatchString(np.ID) || seen[np.ID] {
+			np.ID = newID()
+		}
+		seen[np.ID] = true
+		for _, t := range p.Targets {
+			if !nameRe.MatchString(t.Remote) || t.Remote == main {
+				continue
+			}
+			tp, err := cleanFolder(t.Path)
+			if err != nil || tp == "" {
+				return nil, fmt.Errorf("choose a destination folder on %s", t.Remote)
+			}
+			if strings.EqualFold(firstSeg(tp), trashDir) {
+				return nil, errors.New("the trash folder cannot be a destination")
+			}
+			np.Targets = append(np.Targets, Target{Remote: t.Remote, Path: tp})
+		}
+		if len(np.Targets) == 0 {
+			return nil, fmt.Errorf("choose at least one destination for %s", src)
+		}
+		for _, t := range np.Targets {
+			for _, o := range all {
+				if o.remote != t.Remote {
+					continue
+				}
+				x, y := strings.ToLower(o.path), strings.ToLower(t.Path)
+				if x == y || strings.HasPrefix(x, y+"/") || strings.HasPrefix(y, x+"/") {
+					return nil, fmt.Errorf("on %s, the folders \"%s\" and \"%s\" overlap, so one sync would delete the other's files. Use separate folders", t.Remote, o.path, t.Path)
+				}
+			}
+			all = append(all, dest{t.Remote, t.Path})
+		}
+		out = append(out, np)
+	}
+	return out, nil
+}
+
 func (a *App) hSettings(r *http.Request) (any, error) {
-	var s Settings
-	if err := body(r, &s); err != nil {
+	var in Settings
+	if err := body(r, &in); err != nil {
 		return nil, err
 	}
-	if s.Main != "" && !nameRe.MatchString(s.Main) {
+	if in.Main != "" && !nameRe.MatchString(in.Main) {
 		return nil, errors.New("invalid main account")
 	}
-	if s.DeleteMode != "mirror" && s.DeleteMode != "keep" {
-		s.DeleteMode = "trash"
+	if in.DeleteMode != "mirror" && in.DeleteMode != "keep" {
+		in.DeleteMode = "trash"
 	}
-	clean := map[string][]string{}
-	for f, ds := range s.Folders {
-		f, err := cleanFolder(f)
-		if err != nil || f == "" {
-			continue
-		}
-		out := []string{}
-		for _, d := range ds {
-			if nameRe.MatchString(d) && d != s.Main {
-				out = append(out, d)
-			}
-		}
-		clean[f] = out
+	plans, err := normalizePlans(in.Main, in.Plans)
+	if err != nil {
+		return nil, err
 	}
-	s.Folders = clean
+	in.Plans, in.Folders = plans, nil
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.job != nil && a.job.Running {
 		return nil, errors.New("wait for the current run to finish before changing settings")
 	}
-	a.settings = s
+	a.settings = in
 	a.saveLocked()
-	return s, nil
+	return in, nil
 }
 
 func (a *App) stopAll() {
@@ -604,7 +718,10 @@ func (a *App) hCancel(r *http.Request) (any, error) {
 // ---------- preview / sync ----------
 
 func (a *App) hRun(r *http.Request) (any, error) {
-	var in struct{ Kind string }
+	var in struct {
+		Kind string
+		IDs  []string
+	}
 	if err := body(r, &in); err != nil || (in.Kind != "preview" && in.Kind != "sync") {
 		return nil, errors.New("invalid request")
 	}
@@ -616,20 +733,22 @@ func (a *App) hRun(r *http.Request) (any, error) {
 	if a.settings.Main == "" {
 		return nil, errors.New("choose a main account first")
 	}
-	folders := make([]string, 0, len(a.settings.Folders))
-	for f := range a.settings.Folders {
-		folders = append(folders, f)
+	want := map[string]bool{}
+	for _, id := range in.IDs {
+		want[id] = true
 	}
-	sort.Strings(folders)
 	job := &Job{Kind: in.Kind, Running: true, Started: time.Now().Format(time.RFC3339), Mode: a.settings.DeleteMode}
-	for _, f := range folders {
-		for _, d := range a.settings.Folders[f] {
-			job.Pairs = append(job.Pairs, &Pair{Folder: f, Dest: d, Status: "pending",
+	for _, pl := range a.settings.Plans {
+		if len(want) > 0 && !want[pl.ID] {
+			continue
+		}
+		for _, t := range pl.Targets {
+			job.Pairs = append(job.Pairs, &Pair{PlanID: pl.ID, Folder: pl.Source, Dest: t.Remote, DestPath: t.Path, Status: "pending",
 				Added: []string{}, Updated: []string{}, Removed: []string{}, Current: []string{}, Errors: []string{}})
 		}
 	}
 	if len(job.Pairs) == 0 {
-		return nil, errors.New("tick at least one folder to copy first")
+		return nil, errors.New("create a sync first")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	job.cancel = cancel
@@ -665,7 +784,7 @@ func (a *App) hRun(r *http.Request) (any, error) {
 		job.Finished = time.Now().Format(time.RFC3339)
 		if job.Kind == "sync" {
 			for _, p := range job.Pairs {
-				delete(a.sizes, p.Dest+":"+p.Folder)
+				delete(a.sizes, p.Dest+":"+p.DestPath)
 			}
 		}
 		a.mu.Unlock()
@@ -689,11 +808,11 @@ func (a *App) runPair(ctx context.Context, p *Pair, main, kind, mode, stamp stri
 	if mode == "keep" {
 		verb = "copy"
 	}
-	args := []string{verb, main + ":" + p.Folder, p.Dest + ":" + p.Folder,
+	args := []string{verb, main + ":" + p.Folder, p.Dest + ":" + p.DestPath,
 		"--combined", report.Name(), "--create-empty-src-dirs",
 		"--use-json-log", "-v", "--stats", "1s"}
 	if mode == "trash" {
-		trash := trashDir + "/" + stamp + "/" + p.Folder
+		trash := trashDir + "/" + stamp + "/" + p.DestPath
 		args = append(args, "--backup-dir", p.Dest+":"+trash)
 		set(func() { p.Trash = trash })
 	}

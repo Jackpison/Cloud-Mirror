@@ -4,106 +4,293 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CloudMirror</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
 <style>
 :root{
-  --bg:#f4f5f7; --card:#fff; --ink:#1b1f27; --muted:#6a7282; --line:#e3e6ec;
-  --accent:#2f6bff; --accent-ink:#fff; --soft:#eef3ff;
-  --ok:#157f4b; --ok-bg:#e4f5ec; --warn:#9a6200; --warn-bg:#fdf1d8; --bad:#b3261e; --bad-bg:#fbe6e4;
+  color-scheme: light dark;
+  --bg:#f4f6fb; --surface:#ffffff; --surface-2:#f7f8fc; --ink:#0d1222; --muted:#5d667a; --faint:#8b94a7; --line:#e4e8f0;
+  --accent:#4a5cf5; --accent-2:#7c5cf5; --accent-soft:color-mix(in oklab, var(--accent) 9%, var(--surface));
+  --ok:#0b7f4d; --ok-bg:#e1f5eb; --warn:#935300; --warn-bg:#fff0d3; --bad:#bd3329; --bad-bg:#fde8e5;
+  --tile:#ffffff; --fold:#f2a93b;
+  --shadow:0 1px 2px rgba(15,23,42,.04), 0 10px 30px -14px rgba(15,23,42,.16);
+  --shadow-lg:0 24px 60px -20px rgba(15,23,42,.35);
+  --r:20px;
 }
 @media (prefers-color-scheme: dark){
-  :root{ --bg:#12141a; --card:#1b1e26; --ink:#e9ecf2; --muted:#98a1b3; --line:#2b303b;
-    --accent:#6f97ff; --accent-ink:#0c1020; --soft:#222a3f;
-    --ok:#6fd6a0; --ok-bg:#163326; --warn:#f0c060; --warn-bg:#3a2e12; --bad:#ff8f87; --bad-bg:#40201e; }
+  :root{
+    --bg:#090b12; --surface:#131723; --surface-2:#191e2c; --ink:#edf0f7; --muted:#9aa3b8; --faint:#6f7890; --line:#252b3c;
+    --accent:#7b88ff; --accent-2:#a083ff; --accent-soft:color-mix(in oklab, var(--accent) 14%, var(--surface));
+    --ok:#6fdba5; --ok-bg:#143325; --warn:#f2c25f; --warn-bg:#392d12; --bad:#ff948b; --bad-bg:#3f1f1d;
+    --tile:#eef1f8; --fold:#e8a33c;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    --shadow-lg:0 24px 60px -20px rgba(0,0,0,.8);
+  }
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-header{display:flex;align-items:center;gap:12px;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--line)}
-header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:-.01em}
-header .sp{flex:1}
-header small{color:var(--muted)}
-main{max-width:1060px;margin:0 auto;padding:22px 16px 80px;display:grid;gap:18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
-.card h2{margin:0 0 4px;font-size:16px;font-weight:650}
-.card h2 .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--accent);font-size:12px;margin-right:8px}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);font:15px/1.5 "Inter var",Inter,system-ui,-apple-system,"Segoe UI Variable","Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;letter-spacing:-.005em;
+  background:
+    radial-gradient(900px 420px at 8% -8%, color-mix(in oklab, var(--accent) 13%, transparent), transparent 70%),
+    radial-gradient(800px 380px at 96% -12%, color-mix(in oklab, var(--accent-2) 11%, transparent), transparent 70%),
+    var(--bg);
+  background-attachment:fixed;min-height:100vh}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+h1,h2,h3{margin:0;letter-spacing:-.02em}
+b{font-weight:650}
+.ico{width:18px;height:18px;flex:none;vertical-align:-3.5px}
+.ico.fill{fill:currentColor;stroke:none}
+.sp{flex:1}
+.muted{color:var(--muted)} .ok{color:var(--ok)} .warn{color:var(--warn)}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:12px;padding:12px clamp(16px,3vw,32px);position:sticky;top:0;z-index:20;
+  background:color-mix(in oklab, var(--bg) 72%, transparent);backdrop-filter:saturate(1.4) blur(18px);-webkit-backdrop-filter:saturate(1.4) blur(18px);
+  border-bottom:1px solid color-mix(in oklab, var(--line) 70%, transparent)}
+.brandmark{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;letter-spacing:-.02em}
+.brandmark img{width:30px;height:30px;display:block}
+.chip{font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:2px 9px}
+.chip:empty{display:none}
+
+/* buttons */
+.btn{font:inherit;font-weight:560;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  padding:9px 16px;border-radius:12px;cursor:pointer;transition:transform .12s, box-shadow .15s, border-color .15s, background .15s;box-shadow:0 1px 1px rgba(15,23,42,.03)}
+.btn:hover{border-color:color-mix(in oklab, var(--ink) 25%, var(--line))}
+.btn:active{transform:translateY(1px)}
+.btn.primary{border-color:transparent;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 6px 18px -8px color-mix(in oklab, var(--accent) 80%, transparent)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.quiet{background:transparent;border-color:transparent;box-shadow:none;color:var(--muted)}
+.btn.quiet:hover{background:var(--surface);color:var(--ink)}
+.btn.small{padding:6px 12px;font-size:14px;border-radius:10px}
+.btn.tiny{padding:3px 10px;font-size:13px;border-radius:9px}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:default;pointer-events:none}
+.icon-btn{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer;transition:background .15s,color .15s}
+.icon-btn:hover{background:var(--surface-2);color:var(--ink)}
+.icon-btn.danger:hover{background:var(--bad-bg);color:var(--bad)}
+.icon-btn:disabled{opacity:.4;pointer-events:none}
+.link{border:0;background:none;color:var(--accent);font:inherit;cursor:pointer;padding:0}
+.link:hover{text-decoration:underline}
+.link.tiny{font-size:13px}
+
+/* layout */
+.layout{max-width:1240px;margin:0 auto;padding:26px clamp(16px,3vw,32px) 90px;display:grid;grid-template-columns:320px minmax(0,1fr);gap:26px;align-items:start}
+aside{display:grid;gap:18px;position:sticky;top:84px}
+@media (max-width:960px){.layout{grid-template-columns:1fr}aside{position:static}main{order:-1}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
+.panel-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.panel-h h2{font-size:14px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;flex:1}
 .hint{color:var(--muted);margin:0 0 14px;font-size:14px}
-button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:9px;cursor:pointer}
-button:hover{border-color:var(--muted)}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
-button.big{padding:11px 22px;font-size:15px}
-button.link{border:0;background:none;color:var(--accent);padding:0}
-button.ghost{border:0;background:none;color:var(--muted);padding:2px 6px}
-button:disabled{opacity:.5;cursor:default}
-input[type=text],input[type=password],select{font:inherit;width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}
-.accounts{display:flex;flex-wrap:wrap;gap:10px}
-.acct{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:9px 12px;min-width:200px}
-.acct.main{border-color:var(--accent);background:var(--soft)}
-.acct .nm{font-weight:600}
-.acct .tp{color:var(--muted);font-size:13px}
-.acct .sp{flex:1}
-.tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
-.tag.main{background:var(--accent);color:var(--accent-ink)}
+
+/* brand tile */
+.brand{--s:36px;width:var(--s);height:var(--s);flex:none;display:inline-grid;place-items:center;border-radius:calc(var(--s)*.3);background:var(--tile);border:1px solid var(--line);box-shadow:0 1px 2px rgba(15,23,42,.06)}
+.brand svg{width:64%;height:64%;display:block}
+.brand.full{background:none;border:0;box-shadow:none}
+.brand.full svg{width:100%;height:100%}
+
+/* accounts */
+.accts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.acct{display:flex;align-items:center;gap:11px;padding:9px 8px 9px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);transition:border-color .15s, background .15s}
+.acct.is-main{background:var(--accent-soft);border-color:color-mix(in oklab, var(--accent) 38%, var(--line))}
+.a-t{flex:1;min-width:0}
+.a-n{font-weight:620;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.a-s{font-size:13px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:650;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.pill.main{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff}
+.pill.main .ico{width:12px;height:12px;vertical-align:-1px}
+.pill.new{background:var(--ok-bg);color:var(--ok);font-size:11px;padding:1px 7px}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:620;padding:3px 10px;border-radius:99px;white-space:nowrap}
 .tag.ok{background:var(--ok-bg);color:var(--ok)} .tag.warn{background:var(--warn-bg);color:var(--warn)}
-.tag.bad{background:var(--bad-bg);color:var(--bad)} .tag.mute{background:var(--bg);color:var(--muted)}
-.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
-table{border-collapse:collapse;width:100%;min-width:520px}
-th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
-tr:last-child td{border-bottom:0}
-th{font-size:13px;color:var(--muted);font-weight:600;background:var(--bg)}
-th b{color:var(--ink);display:block;font-size:14px}
-td .fname{font-weight:600}
-td .meta{color:var(--muted);font-size:13px;margin-top:2px}
-td label{display:flex;gap:9px;align-items:flex-start;cursor:pointer}
-td input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--accent)}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.row .sp{flex:1}
-.pair{border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:10px}
-.pair .top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.pair .top b{font-weight:600}
-.counts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.bar{height:7px;border-radius:9px;background:var(--bg);overflow:hidden;margin-top:10px}
-.bar i{display:block;height:100%;background:var(--accent);transition:width .4s}
-details{margin-top:8px} summary{cursor:pointer;color:var(--accent);font-size:14px}
-.files{font:13px/1.5 ui-monospace,Consolas,monospace;max-height:220px;overflow:auto;background:var(--bg);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;word-break:break-all}
+.tag.bad{background:var(--bad-bg);color:var(--bad)} .tag.mute{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.tag.info{background:var(--accent-soft);color:var(--accent)}
+
+/* safety options */
+.opt{display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:13px;cursor:pointer;margin-bottom:8px;transition:border-color .15s, background .15s}
+.opt:last-child{margin-bottom:0}
+.opt:hover{border-color:color-mix(in oklab, var(--ink) 22%, var(--line))}
+.opt input{margin-top:4px;accent-color:var(--accent)}
+.opt b{display:block;font-size:14.5px} .opt small{color:var(--muted);font-size:13px;line-height:1.35;display:block}
+.opt:has(input:checked){border-color:color-mix(in oklab, var(--accent) 45%, var(--line));background:var(--accent-soft)}
+
+/* page header */
+.page-h{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px}
+.page-h h1{font-size:28px;font-weight:720}
+.page-h .sub{margin:4px 0 0;color:var(--muted);max-width:56ch}
+.page-actions{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+
+/* banner */
+.banner{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 16px;border-radius:16px;margin-bottom:16px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow)}
+.banner.run{border-color:color-mix(in oklab, var(--accent) 40%, var(--line));background:var(--accent-soft)}
+.banner.bad{border-color:color-mix(in oklab, var(--bad) 40%, var(--line))}
+.banner b{font-size:15.5px}
+.banner .sub{color:var(--muted);font-size:14px}
+
+/* plan cards */
+.plans{display:grid;gap:16px}
+.plan{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.plan-h{display:flex;align-items:center;gap:14px;padding:16px 18px}
+.plan-src{flex:1;min-width:0}
+.crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:2px 5px;font-size:16px}
+.crumbs span{color:var(--muted)} .crumbs i{font-style:normal;color:var(--faint)} .crumbs b{font-weight:680}
+.sub{color:var(--muted);font-size:13.5px}
+.plan-actions{display:flex;gap:4px;align-items:center}
+.dests{border-top:1px solid var(--line);background:var(--surface-2)}
+.dest{padding:13px 18px;border-bottom:1px solid var(--line)}
+.dest:last-child{border-bottom:0}
+.dest-row{display:flex;align-items:center;gap:13px}
+.dest-row .join{color:var(--faint);display:grid;place-items:center;width:18px}
+.d-main{flex:1;min-width:0}
+.d-name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:15px}
+.d-name .crumbs{font-size:14.5px}
+.progress{height:7px;border-radius:9px;background:var(--line);overflow:hidden;margin:11px 0 6px}
+.progress i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .5s}
+.counts{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+details{margin-top:8px} summary{cursor:pointer;color:var(--accent);font-size:14px;width:max-content}
+.files{font:12.5px/1.6 ui-monospace,"Cascadia Code",Consolas,monospace;max-height:230px;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-top:7px;white-space:pre-wrap;word-break:break-all}
 .files .a{color:var(--ok)} .files .u{color:var(--warn)} .files .r{color:var(--bad)}
-.err{background:var(--bad-bg);color:var(--bad);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:14px;word-break:break-word}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px;z-index:10}
-.modal .box{background:var(--card);border-radius:14px;padding:22px;width:min(520px,100%);max-height:88vh;overflow:auto}
-.modal h3{margin:0 0 12px;font-size:17px}
-.field{margin-bottom:12px} .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
-.help{white-space:pre-wrap;color:var(--muted);font-size:14px;margin:0 0 12px;word-break:break-word}
-.opts{display:grid;gap:6px;margin-bottom:12px}
-.opts label{display:flex;gap:8px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer}
-.picker{border:1px solid var(--line);border-radius:9px;max-height:300px;overflow:auto}
-.picker div{padding:8px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
-.picker div:last-child{border:0}
-.crumb{font-size:14px;margin-bottom:8px;color:var(--muted);word-break:break-all}
-.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px}
+.err{background:var(--bad-bg);color:var(--bad);border-radius:11px;padding:9px 12px;margin-top:9px;font-size:14px;word-break:break-word}
+
+.empty{text-align:center;padding:54px 24px;background:var(--surface);border:1px dashed color-mix(in oklab, var(--ink) 18%, var(--line));border-radius:var(--r)}
+.empty img{width:76px;height:76px;margin-bottom:10px}
+.empty h3{font-size:19px;margin-bottom:6px} .empty p{color:var(--muted);max-width:46ch;margin:0 auto 18px}
+
+/* sheet / modal */
+.scrim{position:fixed;inset:0;background:rgba(8,10,18,.55);backdrop-filter:blur(5px);display:grid;place-items:center;padding:16px;z-index:50;animation:fade .15s}
+.sheet{width:min(680px,100%);max-height:min(88vh,860px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow-lg);animation:pop .2s cubic-bezier(.2,.9,.3,1.2)}
+.sheet.narrow{width:min(520px,100%)}
+.sheet-h{padding:20px 24px 0;display:flex;align-items:center;gap:12px}
+.sheet-h h3{font-size:19px}
+.sheet-b{padding:16px 24px;overflow:auto;flex:1;min-height:0}
+.sheet-b h3{font-size:19px;margin-bottom:4px}
+.sheet-f{display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:14px 24px 20px;border-top:1px solid var(--line)}
+.sheet-f .sel{flex:1;min-width:0;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+@keyframes fade{from{opacity:0}} @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}}
+.steps{list-style:none;display:flex;gap:8px;padding:0;margin:0}
+.steps li{font-size:13px;font-weight:620;color:var(--faint);display:flex;align-items:center;gap:7px}
+.steps li::before{content:attr(data-n);display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);font-size:12px}
+.steps li+li::after{content:"";}
+.steps li.on{color:var(--ink)} .steps li.on::before{background:var(--accent);border-color:var(--accent);color:#fff}
+.steps li.done{color:var(--muted)} .steps li.done::before{content:"✓";background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.steps li:not(:last-child)::after{content:"";width:28px;height:2px;background:var(--line);border-radius:2px;margin-left:3px}
+
+.flabel{display:block;font-size:13px;font-weight:620;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=password],select{font:inherit;width:100%;padding:10px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);transition:border-color .15s, box-shadow .15s}
+input[type=text]:focus,input[type=password]:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent)}
+.help{white-space:pre-wrap;color:var(--muted);font-size:14px;margin:0 0 14px;word-break:break-word}
+.help a{color:var(--accent)}
+.optlist{display:grid;gap:8px;margin-bottom:14px}
+.optlist label{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 13px;cursor:pointer}
+.optlist label:has(input:checked){border-color:color-mix(in oklab, var(--accent) 45%, var(--line));background:var(--accent-soft)}
+.optlist input{accent-color:var(--accent)}
+.provgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.prov{font:inherit;display:flex;flex-direction:column;align-items:center;gap:9px;padding:16px 8px 13px;border:1px solid var(--line);border-radius:16px;background:var(--surface);cursor:pointer;font-weight:580;font-size:14px;transition:transform .12s, border-color .15s, box-shadow .15s}
+.prov:hover{border-color:color-mix(in oklab, var(--accent) 50%, var(--line));box-shadow:var(--shadow);transform:translateY(-2px)}
+@media (max-width:520px){.provgrid{grid-template-columns:repeat(2,1fr)}}
+
+/* folder tree */
+.tree{border:1px solid var(--line);border-radius:16px;background:var(--surface-2);padding:8px;max-height:min(44vh,420px);overflow:auto}
+.tree ul{list-style:none;margin:0;padding:0 0 0 20px;border-left:1px solid color-mix(in oklab, var(--line) 80%, transparent);margin-left:17px}
+.tree>ul{padding-left:0;margin-left:0;border:0}
+.tree-root{display:flex;align-items:center;gap:10px;padding:6px 8px 10px;font-weight:650}
+.node{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:11px;cursor:pointer;transition:background .12s}
+.node:hover{background:color-mix(in oklab, var(--accent) 7%, transparent)}
+.node.sel{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px color-mix(in oklab, var(--accent) 55%, transparent)}
+.chev{width:22px;height:22px;display:grid;place-items:center;border:0;background:none;color:var(--faint);cursor:pointer;border-radius:7px;flex:none;padding:0}
+.chev:hover{background:var(--line);color:var(--ink)} .chev.none{pointer-events:none}
+.chev .ico{width:15px;height:15px;transition:transform .15s} .chev.open .ico{transform:rotate(90deg)}
+.node .fold{color:var(--fold);fill:color-mix(in oklab, var(--fold) 28%, transparent)}
+.node .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node .ns{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.tree-note{color:var(--muted);font-size:13.5px;padding:6px 10px 6px 34px}
+.tools{display:flex;gap:8px;margin:12px 0 10px;align-items:center;flex-wrap:wrap}
+.newrow{display:flex;gap:8px;margin-bottom:10px}
+
+/* destination cards */
+.src-chip{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2);margin:6px 0 20px}
+.src-chip .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:650}
+.src-chip .crumbs{font-size:15.5px}
+.dcard{border:1px solid var(--line);border-radius:16px;margin-bottom:10px;transition:border-color .15s, background .15s}
+.dcard.on{border-color:color-mix(in oklab, var(--accent) 45%, var(--line));background:var(--accent-soft)}
+.dhead{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer}
+.dhead input{position:absolute;opacity:0;pointer-events:none}
+.sw{width:38px;height:22px;border-radius:99px;background:color-mix(in oklab, var(--ink) 16%, var(--surface));position:relative;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.dhead input:checked+.sw{background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+.dhead input:checked+.sw::after{transform:translateX(16px)}
+.dhead input:focus-visible+.sw{outline:2px solid var(--accent);outline-offset:2px}
+.dn{display:flex;flex-direction:column;line-height:1.25} .dn small{color:var(--muted);font-size:13px}
+.dbody{padding:0 14px 14px 64px}
+@media (max-width:520px){.dbody{padding-left:14px}}
+.pathrow{display:flex;gap:8px;align-items:center}
+.pathrow .pfx{color:var(--muted);font-size:14px;white-space:nowrap;max-width:34%;overflow:hidden;text-overflow:ellipsis}
+.dinfo{font-size:13.5px;margin-top:8px;min-height:20px}
+
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .75s linear infinite;vertical-align:-2px}
 @keyframes s{to{transform:rotate(360deg)}}
-.empty{color:var(--muted);padding:14px;text-align:center}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:14px;box-shadow:var(--shadow-lg);z-index:80;max-width:min(560px,92vw);font-size:14.5px;animation:pop .2s}
+.hero{max-width:520px;margin:12vh auto 0;text-align:center;padding:0 16px}
+.hero img{width:96px;height:96px}
+.hero h1{font-size:30px;margin:14px 0 8px}
+.hero p{color:var(--muted);margin:0 0 22px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <h1>CloudMirror</h1><small id="ver"></small><span class="sp"></span>
-  <button id="quit" title="Close the app completely">Quit</button>
+<header class="topbar">
+  <div class="brandmark"><img src="/icon.svg" alt="" width="30" height="30"><span>CloudMirror</span><span class="chip" id="ver"></span></div>
+  <span class="sp"></span>
+  <button class="btn quiet small" data-act="quit">Quit</button>
 </header>
-<main id="app"><div class="card"><span class="spin"></span> Loading…</div></main>
+<div id="root"></div>
 <div id="modal"></div>
 
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const SERVICE = {drive:'Google Drive', pcloud:'pCloud', koofr:'Koofr', filen:'Filen', dropbox:'Dropbox', onedrive:'OneDrive',
-  mega:'MEGA', box:'Box', protondrive:'Proton Drive', s3:'S3-compatible', webdav:'WebDAV', sftp:'SFTP', alias:'Local folder'};
+const enc = encodeURIComponent;
+
+/* ---------- icons ---------- */
+const P = {
+  plus:'M12 5v14M5 12h14', x:'M6 6l12 12M18 6L6 18', chev:'M9 6l6 6-6 6',
+  pencil:'M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19zM14 7l3 3',
+  trash:'M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3',
+  folder:'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  folderplus:'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v5M9.5 12.5h5',
+  arrow:'M5 12h14M13 6l6 6-6 6', check:'M5 12.5l4.5 4.5L19 7', search:'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.5-4.5',
+  star:'M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z',
+  stop:'M7 7h10v10H7z', sync:'M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4',
+  down:'M12 4v11M7 11l5 5 5-5M5 20h14'
+};
+const ico = (n, c = '') => `<svg class="ico ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[n]}"/></svg>`;
+
+const FULL = new Set(['koofr', 'filen', 'box', 'mega', 'protondrive']);
+const BRAND = {
+  drive:`<svg viewBox="0 0 87.3 78"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="M43.65 25L29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5z" fill="#00ac47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="M43.65 25L57.4 1.2c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="M59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 59.8 53h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>`,
+  pcloud:`<svg viewBox="5 7 40 33"><g fill="#17bed0"><circle cx="16" cy="29" r="8"/><circle cx="26" cy="21" r="11"/><circle cx="36" cy="29" r="7.5"/><rect x="16" y="29" width="20" height="8"/></g><rect x="21" y="19" width="3.4" height="17" rx="1.7" fill="#fff"/><circle cx="28" cy="25" r="4.6" fill="none" stroke="#fff" stroke-width="3.2"/></svg>`,
+  koofr:`<svg viewBox="0 0 48 48"><rect x="3" y="3" width="42" height="42" rx="12" fill="#2fb457"/><path d="M18 14v20M18.5 25.5L30 14M21 23.5L31 34" stroke="#fff" stroke-width="4.2" stroke-linecap="round" fill="none"/></svg>`,
+  filen:`<svg viewBox="0 0 48 48"><defs><linearGradient id="fg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f80ff"/><stop offset="1" stop-color="#6b4cf0"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="12" fill="url(#fg)"/><path d="M18 35V14h13M18 24.5h9.5" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+  dropbox:`<svg viewBox="0 0 48 48" fill="#0061ff"><path d="M14 8l10 6.5L14 21 4 14.5zM34 8l10 6.5L34 21l-10-6.5zM14 22l10 6.5L14 35 4 28.5zM34 22l10 6.5L34 35l-10-6.5zM14 37l10-6.5L34 37l-10 6.5z"/></svg>`,
+  onedrive:`<svg viewBox="3 7 42 33"><g fill="#0364b8"><circle cx="14" cy="28" r="8"/><circle cx="22" cy="20" r="10"/><rect x="14" y="28" width="16" height="8"/></g><g fill="#28a8ea"><circle cx="35" cy="28" r="7"/><rect x="26" y="28" width="9" height="7"/></g><circle cx="30" cy="25" r="6" fill="#0f7fd9"/></svg>`,
+  mega:`<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#d9272e"/><path d="M14 33V17.5l10 10.5 10-10.5V33" stroke="#fff" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+  box:`<svg viewBox="0 0 48 48"><rect x="2" y="9" width="44" height="30" rx="8" fill="#0061d5"/><text x="24" y="30.5" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="16.5" fill="#fff">box</text></svg>`,
+  protondrive:`<svg viewBox="0 0 48 48"><defs><linearGradient id="pg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a6bff"/><stop offset="1" stop-color="#5a38e8"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="12" fill="url(#pg)"/><path d="M12 17a2 2 0 0 1 2-2h6l3 3h11a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H14a2 2 0 0 1-2-2z" fill="#fff"/></svg>`,
+  alias:`<svg viewBox="0 0 48 48"><path d="M6 14a3 3 0 0 1 3-3h10l4 5h16a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z" fill="#f2a93b"/></svg>`,
+  _:`<svg viewBox="0 0 48 48"><g fill="#8a94a8"><circle cx="16" cy="29" r="8"/><circle cx="26" cy="21" r="11"/><circle cx="36" cy="29" r="7.5"/><rect x="16" y="29" width="20" height="8"/></g></svg>`
+};
+const SERVICE = {drive:'Google Drive', pcloud:'pCloud', koofr:'Koofr', filen:'Filen', dropbox:'Dropbox', onedrive:'OneDrive', mega:'MEGA',
+  box:'Box', protondrive:'Proton Drive', s3:'S3-compatible', webdav:'WebDAV', sftp:'SFTP', alias:'Local folder'};
 const POPULAR = ['drive','pcloud','koofr','filen','dropbox','onedrive','mega','box','protondrive'];
 const svc = t => SERVICE[t] || t;
+const brand = (t, s = 36) => `<span class="brand ${FULL.has(t) ? 'full' : ''}" style="--s:${s}px" title="${esc(svc(t))}">${BRAND[t] || BRAND._}</span>`;
 
-let S = null;            // server state
-let topFolders = null;   // top-level folders of the main account
-let folderErr = '';
-const sizes = {};        // "remote:path" -> info | 'loading'
-const stale = new Set(); // keys to re-count on next draw
-let busy = '';
+/* ---------- state ---------- */
+let S = null, W = null, TR = null, overlay = null, hiddenJob = '';
+const sizes = {}, stale = new Set(), openKeys = new Set();
+const typeOf = n => (S.remotes.find(r => r.name === n) || {}).type || '';
+const isRunning = () => !!(S.job && S.job.running);
+const cleanPath = p => String(p || '').replace(/\\/g, '/').split('/').map(s => s.trim()).filter(Boolean).join('/');
+const parentOf = p => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
+const join = (p, n) => p ? p + '/' + n : n;
 
 async function api(path, data) {
   const r = await fetch('/api/' + path, data === undefined ? {} :
@@ -113,340 +300,489 @@ async function api(path, data) {
   return j;
 }
 function fmtBytes(b) {
-  if (b < 0) return '?';
   const u = ['B','KB','MB','GB','TB','PB']; let i = 0;
   while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
   return (i === 0 ? b : b.toFixed(b < 10 ? 2 : b < 100 ? 1 : 0)) + ' ' + u[i];
 }
 const fmtN = n => n.toLocaleString();
 const files = n => fmtN(n) + (n === 1 ? ' file' : ' files');
-function fmtETA(s) {
-  if (s == null) return '';
-  if (s < 60) return Math.round(s) + ' s left';
-  if (s < 3600) return Math.round(s / 60) + ' min left';
-  return (s / 3600).toFixed(1) + ' h left';
+const fmtETA = s => s == null ? '' : s < 60 ? Math.round(s) + ' s left' : s < 3600 ? Math.round(s / 60) + ' min left' : (s / 3600).toFixed(1) + ' h left';
+const crumbs = p => `<span class="crumbs">${p.split('/').map((s, i, a) => i === a.length - 1 ? `<b>${esc(s)}</b>` : `<span>${esc(s)}</span><i>›</i>`).join('')}</span>`;
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4500);
 }
 
-async function load() {
-  S = await api('state');
-  $('#ver').textContent = S.engine.found ? 'rclone ' + S.engine.version : '';
-  if (S.engine.found && S.settings.main && topFolders === null) loadFolders();
-  render();
-  if (S.job && S.job.running) poll();
-}
-async function loadFolders() {
-  topFolders = null; folderErr = ''; render();
-  const main = S.settings.main;
-  try { topFolders = await api('folders?remote=' + encodeURIComponent(main) + '&path='); }
-  catch (e) { topFolders = []; folderErr = e.message; }
-  render();
-}
-function wantSize(remote, path, refresh) {
+function wantSize(remote, path) {
   const k = remote + ':' + path;
+  let refresh = false;
   if (stale.has(k)) { stale.delete(k); refresh = true; delete sizes[k]; }
-  if (sizes[k] && !refresh) return sizes[k];
+  if (sizes[k]) return sizes[k];
   sizes[k] = 'loading';
-  api('size?remote=' + encodeURIComponent(remote) + '&path=' + encodeURIComponent(path) + (refresh ? '&refresh=1' : ''))
-    .then(v => { sizes[k] = v; }).catch(e => { sizes[k] = {error: e.message}; }).finally(render);
+  api('size?remote=' + enc(remote) + '&path=' + enc(path) + (refresh ? '&refresh=1' : ''))
+    .then(v => { sizes[k] = v; }).catch(e => { sizes[k] = {error: e.message}; })
+    .finally(() => { render(); if (overlay) overlay(); });
   return 'loading';
 }
 function sizeText(v) {
   if (v === 'loading') return '<span class="spin"></span> counting…';
-  if (v.error) return '<span title="' + esc(v.error) + '">size unavailable</span>';
-  if (v.missing) return 'not copied yet';
-  return fmtBytes(v.bytes) + ' · ' + files(v.count);
+  if (v.error) return `<span title="${esc(v.error)}">size unavailable</span>`;
+  if (v.missing) return 'not created yet';
+  return `${fmtBytes(v.bytes)} · ${files(v.count)}`;
 }
 
+/* ---------- load / poll ---------- */
+async function load() {
+  S = await api('state');
+  $('#ver').textContent = S.app.version === 'dev' ? 'dev' : 'v' + S.app.version;
+  render();
+  if (isRunning()) poll();
+}
 let polling = false;
 async function poll() {
   if (polling) return; polling = true;
   try {
     while (true) {
       await new Promise(r => setTimeout(r, 700));
-      const st = await api('state');
-      const was = S.job && S.job.running;
-      S = st;
-      if (!S.job || !S.job.running) {
-        if (was && S.job) for (const p of S.job.pairs) { stale.add(p.dest + ':' + p.folder); stale.add(S.settings.main + ':' + p.folder); }
+      const was = isRunning();
+      S = await api('state');
+      if (!isRunning()) {
+        if (was && S.job) for (const p of S.job.pairs) { stale.add(p.dest + ':' + p.destPath); stale.add(S.settings.main + ':' + p.folder); }
         break;
       }
-      renderResults();
+      render();
     }
   } finally { polling = false; render(); }
 }
 
-function rowsFolders() {
-  const set = new Set([...(topFolders || []), ...Object.keys(S.settings.folders)]);
-  return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-}
-function selectedPairs() { return Object.values(S.settings.folders).reduce((n, d) => n + d.length, 0); }
-
+/* ---------- main render ---------- */
 function render() {
-  const app = $('#app');
-  if (!S.engine.found) {
-    app.innerHTML = `<div class="card"><h2>One-time setup</h2>
-      <p class="hint">CloudMirror uses the free rclone engine to talk to your cloud services. It needs to be downloaded once (about 25 MB, from rclone.org).</p>
-      <button class="primary big" id="install" ${busy ? 'disabled' : ''}>${busy === 'install' ? '<span class="spin"></span> Downloading…' : 'Download and continue'}</button>
-      <div id="msg"></div></div>`;
-    $('#install').onclick = async () => {
-      busy = 'install'; render();
-      try { await api('install', {}); busy = ''; await load(); }
-      catch (e) { busy = ''; render(); $('#msg').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
-    };
-    return;
+  if (!S) return;
+  const root = $('#root');
+  if (!S.engine.found) { root.innerHTML = setupHTML(); return; }
+  root.innerHTML = `<div class="layout"><aside>${sideHTML()}</aside><main>${mainHTML()}</main></div>`;
+}
+function setupHTML() {
+  return `<div class="hero"><img src="/icon.svg" alt=""><h1>One quick setup</h1>
+    <p>CloudMirror uses the free, open-source <b>rclone</b> engine to talk to your cloud services. It is downloaded once (about 25 MB) from rclone.org.</p>
+    <button class="btn primary" data-act="install" id="install">${ico('down')} Download and continue</button><div id="msg"></div></div>`;
+}
+
+function sideHTML() {
+  const main = S.settings.main, running = isRunning(), mode = S.settings.deleteMode;
+  let h = `<section class="panel"><div class="panel-h"><h2>Accounts</h2><button class="icon-btn" data-act="add-acct" title="Add account" aria-label="Add account" ${running ? 'disabled' : ''}>${ico('plus')}</button></div>`;
+  if (!S.remotes.length) {
+    h += `<p class="hint">Connect the cloud services you use. You choose one as your <b>main</b> — the one you upload to.</p>
+      <button class="btn primary wide" data-act="add-acct">${ico('plus')} Add your first account</button>`;
+  } else {
+    h += `<ul class="accts">` + S.remotes.map(r => {
+      const isMain = r.name === main;
+      return `<li class="acct ${isMain ? 'is-main' : ''}">${brand(r.type, 38)}<div class="a-t"><div class="a-n">${esc(r.name)}</div><div class="a-s">${esc(svc(r.type))}</div></div>
+        ${isMain ? `<span class="pill main">${ico('star', 'fill')} Main</span>` : `<button class="btn tiny" data-act="make-main" data-n="${esc(r.name)}" ${running ? 'disabled' : ''}>Make main</button>`}
+        <button class="icon-btn danger" data-act="del-acct" data-n="${esc(r.name)}" title="Disconnect" aria-label="Disconnect ${esc(r.name)}" ${running ? 'disabled' : ''}>${ico('x')}</button></li>`;
+    }).join('') + `</ul>`;
   }
-  const running = S.job && S.job.running;
-  const main = S.settings.main;
+  h += `</section>`;
+  h += `<section class="panel"><div class="panel-h"><h2>If a file is removed or changed on ${main ? esc(main) : 'main'}</h2></div>
+    ${[['trash', 'Keep the old copy in a trash folder', 'Safest. Removed and replaced files go to _SyncTrash on the destination.'],
+       ['mirror', 'Delete it from the destination', 'Destination always matches exactly. No way back.'],
+       ['keep', 'Leave the destination alone', 'Only add new and changed files, never remove.']].map(([v, t, d]) =>
+      `<label class="opt"><input type="radio" name="dm" value="${v}" ${mode === v ? 'checked' : ''} ${running ? 'disabled' : ''}><span><b>${t}</b><small>${d}</small></span></label>`).join('')}
+    </section>`;
+  return h;
+}
+
+function jobVisible() { return S.job && S.job.started !== hiddenJob; }
+
+function mainHTML() {
+  const main = S.settings.main, plans = S.settings.plans, running = isRunning();
   const others = S.remotes.filter(r => r.name !== main);
+  let h = `<div class="page-h"><div><h1>Sync plans</h1><p class="sub">${main
+    ? `Each plan keeps a folder of <b>${esc(main)}</b> — or any sub-folder — identical in the places you choose.`
+    : 'Choose a main account to begin.'}</p></div><div class="page-actions">`;
+  if (plans.length) h += `<button class="btn" data-act="run" data-k="preview" ${running ? 'disabled' : ''}>${ico('search')} Check all</button>
+      <button class="btn" data-act="run" data-k="sync" ${running ? 'disabled' : ''}>${ico('sync')} Sync all</button>`;
+  h += `<button class="btn primary" data-act="new-plan" ${!main || !others.length || running ? 'disabled' : ''}>${ico('plus')} New sync</button></div></div>`;
+  if (jobVisible()) h += bannerHTML();
+  if (!plans.length) {
+    h += `<div class="empty"><img src="/icon.svg" alt=""><h3>${!S.remotes.length ? 'Connect your first account' : !main ? 'Choose your main account' : others.length ? 'Create your first sync' : 'Add a second account'}</h3>
+      <p>${!S.remotes.length ? 'Add Google Drive, pCloud, Koofr, Filen and more from the Accounts panel.'
+        : !main ? 'Press “Make main” on the account you upload your files to.'
+        : others.length ? 'Pick a folder on ' + esc(main) + ' — a whole folder or just a sub-folder — and choose where its copies should live.'
+        : 'CloudMirror needs somewhere to copy to. Add another account in the Accounts panel.'}</p>
+      ${main && others.length ? `<button class="btn primary" data-act="new-plan">${ico('plus')} New sync</button>` : ''}</div>`;
+  } else h += `<div class="plans">${plans.map(planHTML).join('')}</div>`;
+  return h;
+}
 
-  let h = `<div class="card"><h2><span class="n">1</span>Accounts</h2>
-    <p class="hint">Connect your cloud services, then pick the one you upload to as <b>Main</b>. Everything else becomes a copy of it.</p>
-    <div class="accounts">`;
-  for (const r of S.remotes) {
-    const isMain = r.name === main;
-    h += `<div class="acct ${isMain ? 'main' : ''}"><div><div class="nm">${esc(r.name)}</div><div class="tp">${esc(svc(r.type))}</div></div><span class="sp"></span>
-      ${isMain ? '<span class="tag main">Main</span>' : `<button class="link" data-main="${esc(r.name)}" ${running ? 'disabled' : ''}>Make main</button>`}
-      <button class="ghost" title="Disconnect" data-del="${esc(r.name)}" ${running ? 'disabled' : ''}>✕</button></div>`;
+function bannerHTML() {
+  const j = S.job, prev = j.kind === 'preview', ps = j.pairs;
+  const tot = ps.reduce((t, p) => t + p.nAdded + p.nUpdated + p.nRemoved, 0);
+  const failed = ps.filter(p => p.status === 'error').length, stopped = ps.some(p => p.status === 'cancelled');
+  let cls = '', title, sub = '', act = '';
+  if (j.running) {
+    cls = 'run'; title = `<span class="spin"></span> ${prev ? 'Checking for changes…' : 'Syncing…'}`;
+    act = `<button class="btn small" data-act="stop">${ico('stop')} Stop</button>`;
+  } else if (failed) { cls = 'bad'; title = `${prev ? 'Check' : 'Sync'} finished with problems in ${failed} ${failed === 1 ? 'copy' : 'copies'}`; }
+  else if (stopped) title = 'Stopped';
+  else if (prev) {
+    title = tot ? `${fmtN(tot)} ${tot === 1 ? 'change' : 'changes'} waiting` : 'Everything is already up to date';
+    sub = tot ? 'Nothing has been changed yet.' : '';
+    if (tot) act = `<button class="btn primary small" data-act="apply">${ico('sync')} Apply these changes</button>`;
+  } else title = tot ? `Sync complete — ${fmtN(tot)} ${tot === 1 ? 'change' : 'changes'} applied` : 'Sync complete — everything was already up to date';
+  return `<div class="banner ${cls}"><div><b>${title}</b>${sub ? `<div class="sub">${sub}</div>` : ''}</div><span class="sp"></span>${act}
+    ${j.running ? '' : `<button class="icon-btn" data-act="dismiss" title="Dismiss" aria-label="Dismiss">${ico('x')}</button>`}</div>`;
+}
+
+function planHTML(pl) {
+  const main = S.settings.main, running = isRunning(), ms = wantSize(main, pl.source);
+  return `<section class="plan"><header class="plan-h">${brand(typeOf(main), 42)}
+    <div class="plan-src">${crumbs(pl.source)}<div class="sub">${esc(main)} · ${sizeText(ms)}</div></div>
+    <div class="plan-actions">
+      <button class="icon-btn" data-act="run" data-k="preview" data-id="${pl.id}" title="Check this one for changes" aria-label="Check for changes" ${running ? 'disabled' : ''}>${ico('search')}</button>
+      <button class="icon-btn" data-act="run" data-k="sync" data-id="${pl.id}" title="Sync this one now" aria-label="Sync now" ${running ? 'disabled' : ''}>${ico('sync')}</button>
+      <button class="icon-btn" data-act="edit-plan" data-id="${pl.id}" title="Edit" aria-label="Edit" ${running ? 'disabled' : ''}>${ico('pencil')}</button>
+      <button class="icon-btn danger" data-act="del-plan" data-id="${pl.id}" title="Remove" aria-label="Remove" ${running ? 'disabled' : ''}>${ico('trash')}</button>
+    </div></header>
+    <div class="dests">${pl.targets.map(t => destRow(pl, t, ms)).join('')}</div></section>`;
+}
+
+function destRow(pl, t, ms) {
+  const ds = wantSize(t.remote, t.path);
+  const pair = jobVisible() ? S.job.pairs.find(p => p.planId === pl.id && p.dest === t.remote && p.destPath === t.path) : null;
+  let badge = '';
+  if (ds !== 'loading' && ms !== 'loading' && !ds.error && !ms.error) {
+    badge = ds.missing ? '<span class="tag mute">New</span>'
+      : (ds.count === ms.count && ds.bytes === ms.bytes) ? `<span class="tag ok">${ico('check')} Matches</span>` : '<span class="tag warn">Differs</span>';
   }
-  h += `<button id="add" ${running ? 'disabled' : ''}>+ Add account</button></div></div>`;
+  return `<div class="dest"><div class="dest-row"><span class="join">${ico('arrow')}</span>${brand(typeOf(t.remote), 32)}
+    <div class="d-main"><div class="d-name"><b>${esc(t.remote)}</b>${crumbs(t.path)}</div><div class="sub">${sizeText(ds)}</div></div>${badge}
+    ${pair ? statusTag(pair) : ''}</div>${pair ? pairDetail(pair) : ''}</div>`;
+}
+function statusTag(p) {
+  const prev = S.job.kind === 'preview';
+  const m = {pending:['mute','Waiting'], running:['info', prev ? 'Checking' : 'Syncing'], done:['ok', prev ? 'Checked' : 'Done'], error:['bad','Problem'], cancelled:['mute','Stopped']}[p.status];
+  return `<span class="tag ${m[0]}">${m[1]}</span>`;
+}
+function pairDetail(p) {
+  const j = S.job, prev = j.kind === 'preview', k = p.planId + '>' + p.dest + '>' + p.destPath;
+  let h = '';
+  if (p.status === 'running' && !prev && p.totalBytes > 0) {
+    h += `<div class="progress"><i style="width:${Math.min(100, p.bytes / p.totalBytes * 100)}%"></i></div>
+      <div class="sub">${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} · ${fmtBytes(p.speed)}/s ${p.eta != null ? '· ' + fmtETA(p.eta) : ''}${p.current.length ? '<br>' + esc(p.current.slice(0, 3).join(', ')) : ''}</div>`;
+  }
+  if (['done', 'error', 'cancelled'].includes(p.status)) {
+    const c = p.nAdded + p.nUpdated + p.nRemoved;
+    const rem = j.mode === 'trash' ? (prev ? 'to move to trash' : 'moved to trash') : j.mode === 'keep' ? '' : (prev ? 'to delete' : 'deleted');
+    if (c) {
+      h += `<div class="counts"><span class="tag ok">${fmtN(p.nAdded)} ${prev ? 'to add' : 'added'}</span><span class="tag warn">${fmtN(p.nUpdated)} ${prev ? 'to update' : 'updated'}</span>
+        ${j.mode === 'keep' ? '' : `<span class="tag bad">${fmtN(p.nRemoved)} ${rem}</span>`}</div>
+        <details data-k="${esc(k)}" ${openKeys.has(k) ? 'open' : ''}><summary>Show files</summary><div class="files">${
+          p.added.map(f => `<span class="a">+ ${esc(f)}</span>`).concat(p.updated.map(f => `<span class="u">~ ${esc(f)}</span>`), p.removed.map(f => `<span class="r">− ${esc(f)}</span>`)).join('\n')
+        }${c > p.added.length + p.updated.length + p.removed.length ? '\n… and more' : ''}</div></details>`;
+      if (!prev && j.mode === 'trash' && (p.nRemoved || p.nUpdated)) h += `<div class="sub" style="margin-top:7px">Previous versions kept on ${esc(p.dest)} in <b>${esc(p.trash)}</b></div>`;
+    } else if (p.status === 'done') h += `<div class="sub" style="margin-top:6px">Up to date</div>`;
+  }
+  for (const e of p.errors.slice(0, 4)) h += `<div class="err">${esc(e)}</div>`;
+  if (p.errors.length > 4) h += `<div class="sub" style="margin-top:4px">and ${p.errors.length - 4} more problems</div>`;
+  return h;
+}
+document.addEventListener('toggle', e => {
+  const d = e.target; if (d.tagName !== 'DETAILS' || !d.dataset.k) return;
+  d.open ? openKeys.add(d.dataset.k) : openKeys.delete(d.dataset.k);
+}, true);
 
-  h += `<div class="card"><h2><span class="n">2</span>Folders</h2>`;
-  if (!main) h += `<p class="hint">Choose a main account above to see its folders.</p>`;
-  else if (!others.length) h += `<p class="hint">Add at least one more account to copy <b>${esc(main)}</b> to.</p>`;
+/* ---------- running ---------- */
+async function run(kind, ids) {
+  if (kind === 'sync' && S.settings.deleteMode === 'mirror' && !confirm('Files removed from the main account will be permanently deleted from the destinations. Continue?')) return;
+  hiddenJob = '';
+  try { await api('run', {kind, ids: ids || []}); S = await api('state'); render(); poll(); }
+  catch (e) { toast(e.message); }
+}
+async function saveSettings(next) { S.settings = await api('settings', next); render(); }
+
+/* ---------- sheet helpers ---------- */
+function sheet(html, cls = '') { $('#modal').innerHTML = `<div class="scrim"><div class="sheet ${cls}" role="dialog" aria-modal="true">${html}</div></div>`; }
+function closeSheet() { $('#modal').innerHTML = ''; TR = null; overlay = null; }
+const stepper = n => `<ol class="steps"><li data-n="1" class="${n === 1 ? 'on' : 'done'}">Folder</li><li data-n="2" class="${n === 2 ? 'on' : ''}">Destinations</li></ol>`;
+
+/* ---------- folder tree ---------- */
+function treeInit(o) { TR = Object.assign({cache:{}, open:new Set(), virtual:new Set(), err:{}, loading:new Set(), sel:o.initial || '', newOpen:false}, o); }
+function kids(p) {
+  const base = TR.cache[p] || [];
+  const v = [...TR.virtual].filter(x => parentOf(x) === p).map(x => x.split('/').pop());
+  return [...new Set([...base, ...v])].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+}
+async function loadChildren(path) {
+  const T = TR; if (!T || T.cache[path] || T.virtual.has(path)) return;
+  T.loading.add(path); renderTree();
+  try { T.cache[path] = await api('folders?remote=' + enc(T.remote) + '&path=' + enc(path)); }
+  catch (e) { T.cache[path] = []; T.err[path] = e.message; }
+  T.loading.delete(path); if (T === TR) renderTree();
+}
+async function expandTo(path) {
+  const T = TR; await loadChildren('');
+  let cur = '', segs = path ? path.split('/') : [];
+  for (let i = 0; i < segs.length && T === TR; i++) {
+    if ((T.cache[cur] || []).includes(segs[i])) {
+      cur = join(cur, segs[i]);
+      if (i < segs.length - 1) { T.open.add(cur); await loadChildren(cur); }
+    } else {                                   // the rest does not exist yet: show it as new
+      for (let j = i; j < segs.length; j++) { T.open.add(cur); cur = join(cur, segs[j]); T.virtual.add(cur); }
+      break;
+    }
+  }
+  if (T === TR) renderTree();
+}
+function nodeSize(path) {
+  if (TR.virtual.has(path)) return '';
+  const v = sizes[TR.remote + ':' + path];
+  if (v === 'loading') return '<span class="spin"></span>';
+  if (v && !v.error && !v.missing) return `${fmtBytes(v.bytes)} · ${files(v.count)}`;
+  return `<button class="link tiny" data-act="t-size" data-p="${esc(path)}">Size</button>`;
+}
+function nodeHTML(path) {
+  const name = path.split('/').pop(), virt = TR.virtual.has(path), open = TR.open.has(path);
+  const can = virt ? kids(path).length > 0 : true;
+  return `<div class="node ${TR.sel === path ? 'sel' : ''}" data-act="t-select" data-p="${esc(path)}" role="treeitem" aria-selected="${TR.sel === path}">
+    ${can ? `<button class="chev ${open ? 'open' : ''}" data-act="t-toggle" data-p="${esc(path)}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(name)}">${ico('chev')}</button>` : '<span class="chev none"></span>'}
+    ${ico('folder', 'fold')}<span class="nm" title="${esc(name)}">${esc(name)}</span>${virt ? '<span class="pill new">new</span>' : ''}<span class="ns">${nodeSize(path)}</span></div>${open ? childrenHTML(path) : ''}`;
+}
+function childrenHTML(p) {
+  if (TR.loading.has(p)) return '<div class="tree-note"><span class="spin"></span> Loading…</div>';
+  if (TR.err[p]) return `<div class="tree-note" style="color:var(--bad)">${esc(TR.err[p])}</div>`;
+  const k = kids(p); if (!k.length) return '<div class="tree-note">No sub-folders</div>';
+  return `<ul role="group">${k.map(n => `<li>${nodeHTML(join(p, n))}</li>`).join('')}</ul>`;
+}
+function renderTree() {
+  const el = $('#tree'); if (!el || !TR) return;
+  const top = el.scrollTop;
+  el.innerHTML = `<div class="tree-root">${brand(typeOf(TR.remote), 30)}<span>${esc(TR.remote)}</span></div>${TR.loading.has('') ? '<div class="tree-note"><span class="spin"></span> Loading…</div>'
+    : TR.err[''] ? `<div class="err">${esc(TR.err[''])}</div>` : kids('').length ? `<ul role="tree">${kids('').map(n => `<li>${nodeHTML(n)}</li>`).join('')}</ul>` : '<div class="tree-note">No folders here yet.</div>'}`;
+  el.scrollTop = top; updateFoot();
+}
+function updateFoot() {
+  const f = $('#selsum'), btn = $('#tpick'); if (!f || !TR) return;
+  if (!TR.sel) { f.innerHTML = 'Select a folder'; }
   else {
-    h += `<p class="hint">Tick where each folder of <b>${esc(main)}</b> should be copied. Sizes and file counts are shown for the main folder and each copy.</p>`;
-    if (folderErr) h += `<div class="err">Could not list folders on ${esc(main)}: ${esc(folderErr)}</div>`;
-    if (topFolders === null) h += `<div class="empty"><span class="spin"></span> Reading folders…</div>`;
-    else {
-      const rows = rowsFolders();
-      h += `<div class="tablewrap"><table><tr><th><b>${esc(main)}</b>Main · ${esc(svc(S.remotes.find(r => r.name === main)?.type || ''))}</th>`;
-      for (const o of others) h += `<th><b>${esc(o.name)}</b>${esc(svc(o.type))}</th>`;
-      h += `</tr>`;
-      if (!rows.length) h += `<tr><td colspan="${others.length + 1}" class="empty">No folders found.</td></tr>`;
-      for (const f of rows) {
-        const dests = S.settings.folders[f] || [];
-        const ms = wantSize(main, f);
-        h += `<tr><td><div class="fname">${esc(f)}</div><div class="meta">${sizeText(ms)}</div></td>`;
-        for (const o of others) {
-          const on = dests.includes(o.name);
-          let meta = '';
-          if (on) {
-            const ds = wantSize(o.name, f);
-            let tag = '';
-            if (ms !== 'loading' && ds !== 'loading' && !ms.error && !ds.error) {
-              tag = ds.missing ? '' : (ds.count === ms.count && ds.bytes === ms.bytes)
-                ? ' <span class="tag ok">Matches</span>' : ' <span class="tag warn">Differs</span>';
-            }
-            meta = `<div class="meta">${sizeText(ds)}${tag}</div>`;
-          }
-          h += `<td><label><input type="checkbox" data-f="${esc(f)}" data-d="${esc(o.name)}" ${on ? 'checked' : ''} ${running ? 'disabled' : ''}>
-            <span>${on ? 'Copy here' : '<span style="color:var(--muted)">Off</span>'}${meta}</span></label></td>`;
-        }
-        h += `</tr>`;
-      }
-      h += `</table></div>
-        <div class="row" style="margin-top:12px">
-          <button id="sub" ${running ? 'disabled' : ''}>+ Add a folder inside another folder</button>
-          <button id="refresh" ${running ? 'disabled' : ''}>Refresh</button><span class="sp"></span>
-          <label for="mode" style="color:var(--muted);font-size:14px">Files I delete or replace on main:</label>
-          <select id="mode" style="width:auto" ${running ? 'disabled' : ''}>
-            <option value="trash">Move to a trash folder on the copy (safest)</option>
-            <option value="mirror">Delete from the copy permanently</option>
-            <option value="keep">Leave on the copy (never delete)</option>
-          </select>
-        </div>`;
-    }
+    const v = TR.virtual.has(TR.sel) ? null : sizes[TR.remote + ':' + TR.sel];
+    f.innerHTML = `${crumbs(TR.sel)} <span>${v === 'loading' ? '<span class="spin"></span>' : v && !v.error && !v.missing ? sizeText(v) : TR.virtual.has(TR.sel) ? 'will be created' : ''}</span>`;
   }
-  h += `</div>`;
-
-  const n = selectedPairs();
-  h += `<div class="card"><h2><span class="n">3</span>Sync</h2>
-    <p class="hint">${n ? `${n} folder ${n === 1 ? 'copy' : 'copies'} selected. Check first to see exactly what would change, or sync straight away.` : 'Tick at least one folder above.'}</p>
-    <div class="row">
-      <button class="big" id="preview" ${running || !n ? 'disabled' : ''}>Check for changes</button>
-      <button class="primary big" id="sync" ${running || !n ? 'disabled' : ''}>Sync now</button>
-      ${running ? '<button id="stop">Stop</button>' : ''}
-    </div><div id="runmsg"></div><div id="results"></div></div>`;
-  app.innerHTML = h;
-  renderResults();
-
-  if ($('#mode')) { $('#mode').value = S.settings.deleteMode; $('#mode').onchange = e => { S.settings.deleteMode = e.target.value; save(); }; }
-  $('#add').onclick = addAccount;
-  app.querySelectorAll('[data-main]').forEach(b => b.onclick = () => {
-    if (Object.keys(S.settings.folders).some(f => S.settings.folders[f].length) &&
-        !confirm('Changing the main account clears your folder choices. Continue?')) return;
-    S.settings.main = b.dataset.main; S.settings.folders = {}; topFolders = null; save().then(loadFolders);
-  });
-  app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (!confirm('Disconnect "' + b.dataset.del + '" from CloudMirror? Files in that account are not touched.')) return;
-    try { await api('account/delete', {name: b.dataset.del}); topFolders = null; await load(); } catch (e) { alert(e.message); }
-  });
-  app.querySelectorAll('input[data-f]').forEach(c => c.onchange = () => {
-    const f = c.dataset.f, d = c.dataset.d, cur = new Set(S.settings.folders[f] || []);
-    c.checked ? cur.add(d) : cur.delete(d);
-    if (cur.size || (topFolders || []).includes(f)) S.settings.folders[f] = [...cur]; else delete S.settings.folders[f];
-    if (!cur.size) delete S.settings.folders[f];
-    save();
-  });
-  if ($('#sub')) $('#sub').onclick = pickFolder;
-  if ($('#refresh')) $('#refresh').onclick = () => { for (const k in sizes) stale.add(k); loadFolders(); };
-  $('#preview').onclick = () => run('preview');
-  $('#sync').onclick = () => run('sync');
-  if ($('#stop')) $('#stop').onclick = () => api('cancel', {});
+  if (btn) btn.disabled = !TR.sel;
+}
+function treeSelect(p) { TR.sel = p; if (!TR.virtual.has(p)) wantSize(TR.remote, p); renderTree(); }
+async function treeToggle(p) {
+  if (TR.open.has(p)) TR.open.delete(p); else { TR.open.add(p); await loadChildren(p); }
+  renderTree();
+}
+function treeNew() {
+  const name = cleanPath($('#newname').value).replace(/\//g, '-'); if (!name) return;
+  const path = join(TR.sel, name); const parent = parentOf(path);
+  TR.virtual.add(path); TR.open.add(parent); TR.sel = path; TR.newOpen = false;
+  $('#newrow').innerHTML = ''; renderTree();
 }
 
-
-async function save() {
-  try { S.settings = await api('settings', S.settings); } catch (e) { alert(e.message); }
-  render();
-}
-async function run(kind) {
-  if (kind === 'sync' && S.settings.deleteMode === 'mirror' &&
-      !confirm('Files you removed from the main account will be permanently deleted from the copies. Continue?')) return;
-  try { await api('run', {kind}); S = await api('state'); render(); poll(); }
-  catch (e) { $('#runmsg').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
-}
-
-function renderResults() {
-  const el = $('#results'); if (!el) return;
-  const j = S.job; if (!j) { el.innerHTML = ''; return; }
-  const prev = j.kind === 'preview';
-  const tot = j.pairs.reduce((t, p) => t + p.nAdded + p.nUpdated + p.nRemoved, 0);
-  const failed = j.pairs.filter(p => p.status === 'error').length;
-  let h = '<div style="margin-top:16px;font-weight:600">';
-  if (j.running) h += `<span class="spin"></span> ${prev ? 'Checking for changes…' : 'Syncing…'}`;
-  else if (failed) h += `${prev ? 'Check' : 'Sync'} finished with problems in ${failed} ${failed === 1 ? 'copy' : 'copies'}`;
-  else if (j.pairs.some(p => p.status === 'cancelled')) h += 'Stopped';
-  else if (prev) h += tot ? `${fmtN(tot)} ${tot === 1 ? 'change' : 'changes'} waiting — nothing has been changed yet` : 'Everything is already up to date';
-  else h += tot ? `Sync complete — ${fmtN(tot)} ${tot === 1 ? 'change' : 'changes'} applied` : 'Sync complete — everything was already up to date';
-  h += '</div>';
-  const open = new Set([...el.querySelectorAll('details[open]')].map(d => d.dataset.k));
-  for (const p of j.pairs) {
-    const k = p.folder + '>' + p.dest;
-    const st = {pending:['mute','Waiting'], running:['warn', prev ? 'Checking' : 'Syncing'], done:['ok', prev ? 'Checked' : 'Done'],
-      error:['bad','Problem'], cancelled:['mute','Stopped']}[p.status];
-    h += `<div class="pair"><div class="top"><b>${esc(p.folder)}</b><span style="color:var(--muted)">${esc(S.settings.main)} → ${esc(p.dest)}</span>
-      <span class="sp" style="flex:1"></span><span class="tag ${st[0]}">${st[1]}</span></div>`;
-    if (p.status === 'running' && !prev && p.totalBytes > 0) {
-      const pct = Math.min(100, p.bytes / p.totalBytes * 100);
-      h += `<div class="bar"><i style="width:${pct}%"></i></div>
-        <div class="meta" style="color:var(--muted);font-size:13px;margin-top:6px">${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} · ${fmtBytes(p.speed)}/s ${p.eta != null ? '· ' + fmtETA(p.eta) : ''}
-        ${p.current.length ? '<br>' + esc(p.current.slice(0, 3).join(', ')) : ''}</div>`;
-    }
-    if (p.status === 'done' || p.status === 'error' || p.status === 'cancelled') {
-      const c = p.nAdded + p.nUpdated + p.nRemoved;
-      const remWord = j.mode === 'trash' ? (prev ? 'to move to trash' : 'moved to trash') : (prev ? 'to delete' : 'deleted');
-      if (c) {
-        h += `<div class="counts"><span class="tag ok">${fmtN(p.nAdded)} ${prev ? 'to add' : 'added'}</span>
-          <span class="tag warn">${fmtN(p.nUpdated)} ${prev ? 'to update' : 'updated'}</span>
-          <span class="tag bad">${fmtN(p.nRemoved)} ${remWord}</span></div>
-          <details data-k="${esc(k)}" ${open.has(k) ? 'open' : ''}><summary>Show files</summary><div class="files">` +
-          p.added.map(f => `<span class="a">+ ${esc(f)}</span>`).concat(
-          p.updated.map(f => `<span class="u">~ ${esc(f)}</span>`),
-          p.removed.map(f => `<span class="r">− ${esc(f)}</span>`)).join('\n') +
-          (c > p.added.length + p.updated.length + p.removed.length ? '\n… and more' : '') + `</div></details>`;
-        if (!prev && j.mode === 'trash' && (p.nRemoved || p.nUpdated))
-          h += `<div class="meta" style="color:var(--muted);font-size:13px;margin-top:6px">Old versions kept on ${esc(p.dest)} in <b>${esc(p.trash)}</b></div>`;
-      } else if (p.status === 'done') h += `<div class="meta" style="color:var(--muted);font-size:14px;margin-top:6px">Up to date</div>`;
-    }
-    for (const e of p.errors.slice(0, 5)) h += `<div class="err">${esc(e)}</div>`;
-    if (p.errors.length > 5) h += `<div class="meta" style="color:var(--muted);font-size:13px;margin-top:4px">and ${p.errors.length - 5} more problems</div>`;
-    h += '</div>';
+/* ---------- plan editor ---------- */
+function openPlanEditor(id) {
+  const pl = id ? S.settings.plans.find(p => p.id === id) : null;
+  W = {id: pl ? pl.id : '', source: pl ? pl.source : '', targets: {}};
+  for (const r of S.remotes.filter(r => r.name !== S.settings.main)) {
+    const t = pl && pl.targets.find(t => t.remote === r.name);
+    W.targets[r.name] = {on: !!t, path: t ? t.path : ''};
   }
-  el.innerHTML = h;
+  pl ? showDestinations() : showSource();
+}
+function showSource() {
+  const main = S.settings.main;
+  treeInit({remote: main, initial: W.source, mode: 'source'});
+  sheet(`<div class="sheet-h">${stepper(1)}<span class="sp"></span><button class="icon-btn" data-act="w-close" aria-label="Close">${ico('x')}</button></div>
+    <div class="sheet-b"><h3>Which folder do you want to mirror?</h3><p class="hint">Browse <b>${esc(main)}</b> and pick any folder or sub-folder. Open folders with the arrow.</p>
+    <div class="tree" id="tree" role="presentation"></div></div>
+    <div class="sheet-f"><div class="sel" id="selsum"></div><button class="btn" data-act="w-close">Cancel</button>
+    <button class="btn primary" id="tpick" data-act="w-next" disabled>Next ${ico('arrow')}</button></div>`);
+  overlay = () => { renderTree(); };
+  renderTree(); expandTo(W.source);
+  if (W.source) wantSize(main, W.source);
+}
+function showDestinations() {
+  const main = S.settings.main, others = S.remotes.filter(r => r.name !== main);
+  TR = null;
+  sheet(`<div class="sheet-h">${stepper(2)}<span class="sp"></span><button class="icon-btn" data-act="w-close" aria-label="Close">${ico('x')}</button></div>
+    <div class="sheet-b"><div class="src-chip">${brand(typeOf(main), 36)}<div><div class="lbl">Source · ${esc(main)}</div>${crumbs(W.source)}</div><span class="sp"></span>
+      <button class="btn small quiet" data-act="w-back">Change</button></div>
+    <h3>Where should it be copied?</h3><p class="hint">Switch on the accounts you want, then choose the folder on each. It starts as the same path — change it if you like.</p>
+    ${others.map(destCard).join('')}<div id="werr"></div></div>
+    <div class="sheet-f"><button class="btn" data-act="w-close">Cancel</button><button class="btn primary" data-act="w-save">${ico('check')} Save sync</button></div>`);
+  overlay = updateDestInfo;
+  updateDestInfo();
+}
+function destCard(r) {
+  const t = W.targets[r.name];
+  return `<div class="dcard ${t.on ? 'on' : ''}"><label class="dhead"><input type="checkbox" data-r="${esc(r.name)}" data-chg="d-toggle" ${t.on ? 'checked' : ''}><span class="sw"></span>
+    ${brand(r.type, 36)}<span class="dn"><b>${esc(r.name)}</b><small>${esc(svc(r.type))}</small></span></label>
+    ${t.on ? `<div class="dbody"><label class="flabel">Destination folder on ${esc(r.name)}</label><div class="pathrow">
+      <input type="text" class="pin" data-r="${esc(r.name)}" value="${esc(t.path)}" placeholder="e.g. Backups/Videos" spellcheck="false" autocomplete="off">
+      <button class="btn small" data-act="d-browse" data-r="${esc(r.name)}">${ico('folder')} Browse</button></div>
+      <div class="dinfo" data-r="${esc(r.name)}"></div></div>` : ''}</div>`;
+}
+function destInfo(remote, path) {
+  path = cleanPath(path);
+  if (!path) return '<span class="muted">Choose a folder.</span>';
+  const v = wantSize(remote, path), mode = S.settings.deleteMode;
+  if (v === 'loading') return '<span class="muted"><span class="spin"></span> Looking inside…</span>';
+  if (v.error) return '<span class="muted">Can’t look inside yet — it will be created if needed.</span>';
+  if (v.missing) return `<span class="ok">${ico('check')} New folder — created on the first sync.</span>`;
+  if (v.count === 0) return '<span class="muted">Empty folder.</span>';
+  const verb = {trash:'moved to the trash folder', mirror:'deleted', keep:'left alone'}[mode];
+  return `<span class="${mode === 'keep' ? 'muted' : 'warn'}">Already holds ${fmtBytes(v.bytes)} · ${files(v.count)}. Files that aren’t in the source will be ${verb}.</span>`;
+}
+function updateDestInfo() {
+  document.querySelectorAll('.dinfo').forEach(el => { const t = W && W.targets[el.dataset.r]; if (t) el.innerHTML = destInfo(el.dataset.r, t.path); });
+}
+function browseDest(remote) {
+  const start = cleanPath(W.targets[remote].path);
+  treeInit({remote, initial: start, mode: 'dest'});
+  sheet(`<div class="sheet-h"><h3>Choose a folder on ${esc(remote)}</h3><span class="sp"></span><button class="icon-btn" data-act="d-cancel" aria-label="Close">${ico('x')}</button></div>
+    <div class="sheet-b"><p class="hint">Pick the folder the copy should live in. Use <b>New folder</b> to make one — it’s created on the first sync.</p>
+    <div class="tools"><button class="btn small" data-act="t-newopen">${ico('folderplus')} New folder</button></div><div id="newrow"></div>
+    <div class="tree" id="tree" role="presentation"></div></div>
+    <div class="sheet-f"><div class="sel" id="selsum"></div><button class="btn" data-act="d-cancel">Cancel</button>
+    <button class="btn primary" id="tpick" data-act="d-use" disabled>Use this folder</button></div>`);
+  overlay = () => renderTree();
+  renderTree(); expandTo(start);
+}
+async function savePlan() {
+  const err = m => { $('#werr').innerHTML = `<div class="err">${esc(m)}</div>`; };
+  const targets = Object.entries(W.targets).filter(([, t]) => t.on).map(([remote, t]) => ({remote, path: cleanPath(t.path)}));
+  if (!targets.length) return err('Switch on at least one account to copy to.');
+  if (targets.some(t => !t.path)) return err('Choose a destination folder for each account that is switched on.');
+  const plans = S.settings.plans.slice(), plan = {id: W.id, source: W.source, targets};
+  const i = plans.findIndex(p => p.id === W.id); i >= 0 ? plans[i] = plan : plans.push(plan);
+  try { await saveSettings({...S.settings, plans}); closeSheet(); W = null; } catch (e) { err(e.message); }
 }
 
-/* ---------- add account wizard ---------- */
-function modal(html) { $('#modal').innerHTML = `<div class="modal"><div class="box">${html}</div></div>`; }
-function closeModal() { $('#modal').innerHTML = ''; }
-
+/* ---------- add account ---------- */
 async function addAccount() {
-  modal('<span class="spin"></span> Loading services…');
+  sheet('<div class="sheet-b"><span class="spin"></span> Loading services…</div>', 'narrow');
   let provs;
-  try { provs = await api('providers'); } catch (e) { modal(`<div class="err">${esc(e.message)}</div><button id="x">Close</button>`); $('#x').onclick = closeModal; return; }
+  try { provs = await api('providers'); }
+  catch (e) { sheet(`<div class="sheet-b"><div class="err">${esc(e.message)}</div></div><div class="sheet-f"><button class="btn" data-act="w-close">Close</button></div>`, 'narrow'); return; }
   const pop = POPULAR.filter(n => provs.some(p => p.name === n));
   const rest = provs.filter(p => !pop.includes(p.name)).sort((a, b) => a.description.localeCompare(b.description));
-  modal(`<h3>Add an account</h3>
-    <div class="field"><label>Service</label><select id="ptype">
-      <optgroup label="Popular">${pop.map(n => `<option value="${n}">${esc(svc(n))}</option>`).join('')}</optgroup>
-      <optgroup label="All services">${rest.map(p => `<option value="${esc(p.name)}">${esc(p.description.slice(0, 70))}</option>`).join('')}</optgroup>
-    </select></div>
-    <div class="field"><label>Name to show in CloudMirror (letters, numbers, - and _)</label><input type="text" id="pname" placeholder="e.g. gdrive"></div>
-    <div id="werr"></div>
-    <div class="row"><span class="sp"></span><button id="x">Cancel</button><button class="primary" id="go">Continue</button></div>`);
-  const nameFor = () => { const t = $('#ptype').value; let n = t === 'drive' ? 'gdrive' : t, i = 2;
-    while (S.remotes.some(r => r.name === n)) n = (t === 'drive' ? 'gdrive' : t) + i++; return n; };
-  $('#pname').value = nameFor(); $('#ptype').onchange = () => $('#pname').value = nameFor();
-  $('#x').onclick = closeModal;
-  $('#go').onclick = () => wizardStep({name: $('#pname').value.trim(), type: $('#ptype').value, first: true});
+  sheet(`<div class="sheet-h"><h3>Connect an account</h3></div><div class="sheet-b">
+    <div class="provgrid">${pop.map(n => `<button class="prov" data-act="pick-prov" data-t="${n}">${brand(n, 46)}<span>${esc(svc(n))}</span></button>`).join('')}</div>
+    <label class="flabel">Or choose another service</label><select data-chg="more"><option value="">Choose…</option>${rest.map(p => `<option value="${esc(p.name)}">${esc(p.description.slice(0, 70))}</option>`).join('')}</select></div>
+    <div class="sheet-f"><button class="btn" data-act="w-close">Cancel</button></div>`, 'narrow');
 }
-
-async function wizardStep(req) {
-  const errBox = $('#werr');
+function pickProv(type) {
+  let base = type === 'drive' ? 'gdrive' : type, n = base, i = 2;
+  while (S.remotes.some(r => r.name.toLowerCase() === n.toLowerCase())) n = base + i++;
+  sheet(`<div class="sheet-h">${brand(type, 40)}<h3>${esc(svc(type))}</h3></div><div class="sheet-b">
+    <label class="flabel">Name for this account in CloudMirror</label><input type="text" id="pname" value="${esc(n)}" spellcheck="false">
+    <p class="hint" style="margin-top:8px">Letters, numbers, - and _ only.</p><div id="werr"></div></div>
+    <div class="sheet-f"><button class="btn" data-act="add-acct">Back</button><button class="btn primary" id="go" data-act="acct-go" data-t="${esc(type)}">Continue</button></div>`, 'narrow');
+  $('#pname').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
+}
+async function acctStep(req) {
   const btn = $('#go'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Working…'; }
-  const waitNote = setTimeout(() => { if ($('#werr')) $('#werr').innerHTML =
-    '<p class="help">If a sign-in page opened in your browser, finish signing in there. This window continues by itself.</p>'; }, 2500);
+  const note = setTimeout(() => { const w = $('#werr'); if (w) w.innerHTML = '<p class="help">If a sign-in page opened in your browser, finish signing in there — this window continues by itself.</p>'; }, 2500);
   let res;
   try { res = await api('account/step', req); }
   catch (e) {
-    clearTimeout(waitNote);
-    if (e.message === 'cancelled') return;
-    if (errBox) errBox.innerHTML = `<div class="err">${esc(e.message)}</div>`;
-    if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+    clearTimeout(note); if (e.message === 'cancelled') return;
+    const w = $('#werr'); if (w) w.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+    if (btn) { btn.disabled = false; btn.textContent = 'Continue'; } return;
+  }
+  clearTimeout(note);
+  if (res.done) {
+    closeSheet(); await load();
+    if (!S.settings.main && S.remotes.length === 1) await saveSettings({...S.settings, main: S.remotes[0].name});
     return;
   }
-  clearTimeout(waitNote);
-  if (res.done) { closeModal(); topFolders = S.settings.main ? topFolders : null; await load(); return; }
   const o = res.option, ex = o.Examples || [];
-  let input;
-  if (ex.length && (o.Exclusive || ex.length <= 8)) {
-    input = `<div class="opts">${ex.map((e, i) => `<label><input type="radio" name="ans" value="${esc(e.Value)}" ${e.Value === o.DefaultStr || (!o.DefaultStr && i === 0) ? 'checked' : ''}>
-      <span>${esc(e.Help || e.Value)}</span></label>`).join('')}</div>`;
-  } else {
-    input = `<div class="field"><input type="${o.IsPassword ? 'password' : 'text'}" id="ans" value="${esc(o.IsPassword ? '' : o.DefaultStr || '')}" list="exl" autocomplete="off">
-      <datalist id="exl">${ex.map(e => `<option value="${esc(e.Value)}">${esc(e.Help || '')}</option>`).join('')}</datalist>
-      ${o.Required ? '' : '<div class="tp" style="color:var(--muted);font-size:13px;margin-top:5px">Optional — leave empty if unsure.</div>'}</div>`;
-  }
-  modal(`<h3>${esc(svc(req.type))} · ${esc(o.Name.replace(/^config_/, '').replace(/_/g, ' '))}</h3>
-    <p class="help">${linkify(o.Help)}</p>${res.error ? `<div class="err" style="margin-bottom:10px">${esc(res.error)}</div>` : ''}${input}
-    <div id="werr"></div>
-    <div class="row"><span class="sp"></span><button id="x">Cancel</button><button class="primary" id="go">Continue</button></div>`);
+  const input = ex.length && (o.Exclusive || ex.length <= 8)
+    ? `<div class="optlist">${ex.map((e, i) => `<label><input type="radio" name="ans" value="${esc(e.Value)}" ${e.Value === o.DefaultStr || (!o.DefaultStr && i === 0) ? 'checked' : ''}><span>${esc(e.Help || e.Value)}</span></label>`).join('')}</div>`
+    : `<input type="${o.IsPassword ? 'password' : 'text'}" id="ans" value="${esc(o.IsPassword ? '' : o.DefaultStr || '')}" list="exl" autocomplete="off" spellcheck="false">
+       <datalist id="exl">${ex.map(e => `<option value="${esc(e.Value)}">${esc(e.Help || '')}</option>`).join('')}</datalist>
+       ${o.Required ? '' : '<p class="hint" style="margin-top:8px">Optional — leave empty if unsure.</p>'}`;
+  sheet(`<div class="sheet-h">${brand(req.type, 40)}<h3>${esc(svc(req.type))}</h3></div><div class="sheet-b">
+    <p class="help">${esc(o.Help).replace(/https?:\/\/[^\s<)]+/g, u => `<a href="${u.replace(/[.,]$/, '')}" target="_blank" rel="noopener">${u}</a>`)}</p>
+    ${res.error ? `<div class="err" style="margin:0 0 12px">${esc(res.error)}</div>` : ''}${input}<div id="werr"></div></div>
+    <div class="sheet-f"><button class="btn" data-act="a-cancel" data-n="${esc(req.name)}">Cancel</button><button class="btn primary" id="go" data-act="acct-next">Continue</button></div>`, 'narrow');
+  window._acct = {name: req.name, type: req.type, state: res.state, pw: o.IsPassword};
   const a = $('#ans'); if (a) { a.focus(); a.onkeydown = e => { if (e.key === 'Enter') $('#go').click(); }; }
-  $('#x').onclick = async () => { closeModal(); await api('account/cancel', {name: req.name}).catch(() => {}); load(); };
-  $('#go').onclick = () => {
-    const v = a ? a.value : ($('input[name=ans]:checked') || {}).value || '';
-    wizardStep({name: req.name, type: req.type, state: res.state, result: v, password: o.IsPassword});
-  };
-}
-function linkify(t) {
-  return esc(t).replace(/https?:\/\/[^\s<)]+/g, u => `<a href="${u.replace(/[.,]$/, '')}" target="_blank" rel="noopener">${u}</a>`);
 }
 
-/* ---------- nested folder picker ---------- */
-async function pickFolder(_, path = '') {
-  modal(`<h3>Choose a folder on ${esc(S.settings.main)}</h3><div class="crumb">${esc(S.settings.main)} / ${esc(path.split('/').join(' / '))}</div>
-    <div class="picker" id="pk"><div><span class="spin"></span> Reading…</div></div>
-    <div class="row" style="margin-top:14px">${path ? '<button id="up">← Back</button>' : ''}<span class="sp"></span><button id="x">Cancel</button>
-    ${path ? '<button class="primary" id="use">Add this folder</button>' : ''}</div>`);
-  $('#x').onclick = closeModal;
-  if (path) {
-    $('#up').onclick = () => pickFolder(null, path.split('/').slice(0, -1).join('/'));
-    $('#use').onclick = () => { if (!S.settings.folders[path]) S.settings.folders[path] = []; closeModal(); save(); };
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const d = el.dataset;
+  switch (d.act) {
+    case 'install': {
+      el.disabled = true; el.innerHTML = '<span class="spin"></span> Downloading…';
+      try { await api('install', {}); await load(); }
+      catch (er) { el.disabled = false; el.innerHTML = ico('down') + ' Try again'; $('#msg').innerHTML = `<div class="err" style="margin-top:14px">${esc(er.message)}</div>`; }
+      break; }
+    case 'quit':
+      if (isRunning() && !confirm('A sync is running. Quit and stop it?')) return;
+      await api('quit', {}).catch(() => {});
+      document.body.innerHTML = '<div class="hero"><img src="/icon.svg" alt=""><h1>CloudMirror is closed</h1><p>You can close this tab.</p></div>'; break;
+    case 'add-acct': addAccount(); break;
+    case 'pick-prov': pickProv(d.t); break;
+    case 'acct-go': acctStep({name: $('#pname').value.trim(), type: d.t, first: true}); break;
+    case 'acct-next': {
+      const a = $('#ans'), v = a ? a.value : ($('input[name=ans]:checked') || {}).value || '';
+      acctStep({name: window._acct.name, type: window._acct.type, state: window._acct.state, result: v, password: window._acct.pw}); break; }
+    case 'a-cancel': closeSheet(); await api('account/cancel', {name: d.n}).catch(() => {}); load(); break;
+    case 'make-main':
+      if (S.settings.plans.length && !confirm('Changing the main account removes your current sync plans. Continue?')) return;
+      try { await saveSettings({...S.settings, main: d.n, plans: []}); } catch (er) { toast(er.message); } break;
+    case 'del-acct':
+      if (!confirm(`Disconnect “${d.n}” from CloudMirror? Files in that account are not touched. Sync plans that use it are updated.`)) return;
+      try { await api('account/delete', {name: d.n}); await load(); } catch (er) { toast(er.message); } break;
+    case 'new-plan': openPlanEditor(''); break;
+    case 'edit-plan': openPlanEditor(d.id); break;
+    case 'del-plan':
+      if (!confirm('Remove this sync plan? Files already copied stay where they are.')) return;
+      try { await saveSettings({...S.settings, plans: S.settings.plans.filter(p => p.id !== d.id)}); } catch (er) { toast(er.message); } break;
+    case 'run': run(d.k, d.id ? [d.id] : []); break;
+    case 'apply': run('sync', [...new Set(S.job.pairs.map(p => p.planId))]); break;
+    case 'stop': api('cancel', {}); break;
+    case 'dismiss': hiddenJob = S.job.started; render(); break;
+    case 'w-close': closeSheet(); W = null; break;
+    case 'w-next': if (TR && TR.sel) { W.source = TR.sel; showDestinations(); } break;
+    case 'w-back': showSource(); break;
+    case 'w-save': savePlan(); break;
+    case 'd-browse': browseDest(d.r); break;
+    case 'd-cancel': showDestinations(); break;
+    case 'd-use': if (TR && TR.sel) { W.targets[TR.remote].path = TR.sel; showDestinations(); } break;
+    case 't-select': treeSelect(d.p); break;
+    case 't-toggle': treeToggle(d.p); break;
+    case 't-size': wantSize(TR.remote, d.p); renderTree(); break;
+    case 't-newopen':
+      $('#newrow').innerHTML = `<div class="newrow"><input type="text" id="newname" placeholder="${TR.sel ? 'New folder inside ' + esc(TR.sel) : 'New folder name'}" spellcheck="false"><button class="btn small primary" data-act="t-newadd">Create</button></div>`;
+      $('#newname').focus(); $('#newname').onkeydown = ev => { if (ev.key === 'Enter') treeNew(); }; break;
+    case 't-newadd': treeNew(); break;
   }
-  try {
-    const list = await api('folders?remote=' + encodeURIComponent(S.settings.main) + '&path=' + encodeURIComponent(path));
-    $('#pk').innerHTML = list.length ? list.map(n => `<div><span style="flex:1">${esc(n)}</span><button class="link" data-p="${esc(n)}">Open</button></div>`).join('')
-      : '<div class="empty">No folders inside.</div>';
-    $('#pk').querySelectorAll('[data-p]').forEach(b => b.onclick = () => pickFolder(null, (path ? path + '/' : '') + b.dataset.p));
-  } catch (e) { $('#pk').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
-}
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.name === 'dm') { saveSettings({...S.settings, deleteMode: t.value}).catch(er => { toast(er.message); render(); }); return; }
+  if (t.dataset.chg === 'd-toggle') {
+    const x = W.targets[t.dataset.r]; x.on = t.checked; if (x.on && !x.path) x.path = W.source; showDestinations(); return;
+  }
+  if (t.dataset.chg === 'more' && t.value) { pickProv(t.value); return; }
+  if (t.classList.contains('pin')) { const x = W.targets[t.dataset.r]; x.path = cleanPath(t.value); t.value = x.path; updateDestInfo(); }
+});
+document.addEventListener('input', e => {
+  const t = e.target; if (t.classList && t.classList.contains('pin')) W.targets[t.dataset.r].path = t.value;
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const b = $('#modal [data-act="d-cancel"], #modal [data-act="a-cancel"], #modal [data-act="w-close"]'); if (b) b.click();
+});
 
-$('#quit').onclick = async () => {
-  if (S && S.job && S.job.running && !confirm('A sync is running. Quit and stop it?')) return;
-  await api('quit', {}).catch(() => {});
-  document.body.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted)">CloudMirror is closed. You can close this tab.</div>';
-};
-load().catch(e => { $('#app').innerHTML = '<div class="card"><div class="err">' + esc(e.message) + '</div></div>'; });
+load().catch(e => { $('#root').innerHTML = `<div class="hero"><h1>Something went wrong</h1><div class="err">${esc(e.message)}</div></div>`; });
 </script>
 </body>
 </html>

@@ -1,15 +1,17 @@
-name: Build Windows app
+name: Release
 
+# Publishes CloudMirror.exe when a version tag such as v0.1.0 is pushed.
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags: ["v*"]
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
-  build:
+  windows:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,14 +19,27 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go vet ./...
+      - name: Version
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Embed icon, version info and manifest
+        run: |
+          go install github.com/tc-hib/go-winres@v0.3.3
+          "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --out rsrc --arch amd64 \
+            --product-version "${{ steps.v.outputs.version }}" --file-version "${{ steps.v.outputs.version }}"
       - name: Build CloudMirror.exe
-        run: GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui -s -w" -o CloudMirror.exe .
-      - name: Publish to the "latest" release
+        run: |
+          GOOS=windows GOARCH=amd64 go build -trimpath \
+            -ldflags "-H=windowsgui -s -w -X main.version=${{ steps.v.outputs.version }}" -o CloudMirror.exe .
+          sha256sum CloudMirror.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: CloudMirror.exe
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest CloudMirror.exe \
-            --target "$GITHUB_SHA" --latest \
-            --title "CloudMirror (latest build)" \
-            --notes "Download CloudMirror.exe below and double-click it. Built automatically from commit ${GITHUB_SHA::7}."
+          gh release create "$GITHUB_REF_NAME" CloudMirror.exe SHA256SUMS.txt \
+            --title "CloudMirror ${GITHUB_REF_NAME}" --generate-notes
