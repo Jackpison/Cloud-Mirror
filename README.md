@@ -41,6 +41,26 @@ go-winres make --in winres/winres.json --out rsrc --arch amd64
 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-H=windowsgui -s -w -X main.version=0.1.0" -o dist/CloudMirror.exe .
 ```
 
+## Code signing policy
+
+Releases are built from this repository by the [Release workflow](.github/workflows/release.yml) on GitHub Actions, and each
+one carries a SHA-256 checksum and a build-provenance attestation. Signing of the Windows exe is being set up; until then the
+exe is unsigned (see "Windows protected your PC" above).
+
+- **Authors, reviewers and approvers:** [@Jackpison](https://github.com/Jackpison) (owner and sole maintainer). Every release is
+  approved manually before it is published.
+- **Only this project's own binaries are signed.** The rclone engine that CloudMirror downloads on first start is a separate
+  program, signed and published by its own maintainers; CloudMirror does not sign or redistribute it.
+
+## Privacy
+
+CloudMirror has no telemetry and no account of its own. It does not send information anywhere except as you ask it to:
+
+- On first start, if rclone is not installed, it downloads rclone from `downloads.rclone.org` when you press the download button.
+- When you add accounts, check or sync, it talks to the cloud services you chose, through rclone, using the credentials you
+  entered. Those credentials are stored on your computer in rclone's configuration file and are only sent to the service they belong to.
+- Its web interface listens only on `127.0.0.1` (your own computer).
+
 ## License
 
 [MIT](LICENSE). CloudMirror runs the separate [rclone](https://rclone.org) program (also MIT licensed), which it downloads on first start.
